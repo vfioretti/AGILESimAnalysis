@@ -227,7 +227,7 @@ AGILE2GridX.E_DEP = Glob_energy_dep_x
 HDR_XGRID = ['Creator          = Valentina Fioretti', $
                 'AGILE release    = V2']
 
-MWRFITS, AGILE2GridX, 'ARCH.XSTRIP.AGILEV2.0.TRACKER.FITS', HDR_XGRID, /CREATE
+MWRFITS, AGILE2GridX, './conf/ARCH.XSTRIP.AGILEV2.0.TRACKER.FITS', HDR_XGRID, /CREATE
 
 CREATE_STRUCT, AGILE2GridY, 'GridAGILE2Y', ['VOLUME_ID', 'MOTHER_ID', 'TRAY_ID','TRK_FLAG', 'STRIP_ID', 'STRIP_TYPE', 'YPOS', 'ZPOS','E_DEP'], 'J,J,I,I,J,J,F20.5,F20.5,F20.5', DIMEN = N_ELEMENTS(Glob_vol_id_y)
 AGILE2GridY.VOLUME_ID = Glob_vol_id_y
@@ -243,7 +243,7 @@ AGILE2GridY.E_DEP = Glob_energy_dep_y
 HDR_YGRID = ['Creator          = Valentina Fioretti', $
                 'AGILE release    = V2']
 
-MWRFITS, AGILE2GridY, 'ARCH.YSTRIP.AGILEV2.0.TRACKER.FITS', HDR_YGRID, /CREATE
+MWRFITS, AGILE2GridY, './conf/ARCH.YSTRIP.AGILEV2.0.TRACKER.FITS', HDR_YGRID, /CREATE
 
 print, '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
 print, '% Output FITS files with X and Y strip positions'
