@@ -8,20 +8,20 @@
 ; Output:
 ; - all files are created in a self-descripted subdirectory of the current directory. If teh directory is not present it is created by the IDL script.
 ; ---------> ASCII files
-; - G4_GAMS_XPLANE_AGILE<version>_<phys>List_<strip>_<point>_<n_in>ph_<energy>MeV_<theta>_<phi>.<file>.dat
-; - G4_GAMS_YPLANE_AGILE<version>_<phys>List_<strip>_<point>_<n_in>ph_<energy>MeV_<theta>_<phi>.<file>.dat
-; - G4_GAMS_AC_AGILE<version>_<phys>List_<strip>_<point>_<n_in>ph_<energy>MeV_<theta>_<phi>.<file>.dat
-; - G4_GAMS_CAL_AGILE<version>_<phys>List_<strip>_<point>_<n_in>ph_<energy>MeV_<theta>_<phi>.<file>.dat
-; - G4.DIGI.GENERAL.AGILE<version>.<phys>List.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.dat
-; - G4.DIGI.KALMAN.AGILE<version>.<phys>List.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.dat
-; - G4.RAW.GENERAL.AGILE<version>.<phys>List.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.dat
-; - G4.RAW.KALMAN.AGILE<version>.<phys>List.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.dat
+; - G4_GAMS_XPLANE_AGILE<version>_<phys>List_<sim_type>_<strip>_<point>_<n_in>ph_<energy>MeV_<theta>_<phi>.<file>.dat
+; - G4_GAMS_YPLANE_AGILE<version>_<phys>List_<sim_type>_<strip>_<point>_<n_in>ph_<energy>MeV_<theta>_<phi>.<file>.dat
+; - G4_GAMS_AC_AGILE<version>_<phys>List_<sim_type>_<strip>_<point>_<n_in>ph_<energy>MeV_<theta>_<phi>.<file>.dat
+; - G4_GAMS_CAL_AGILE<version>_<phys>List_<sim_type>_<strip>_<point>_<n_in>ph_<energy>MeV_<theta>_<phi>.<file>.dat
+; - G4.DIGI.GENERAL.AGILE<version>.<phys>List.<sim_type>.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.dat
+; - G4.DIGI.KALMAN.AGILE<version>.<phys>List.<sim_type>.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.dat
+; - G4.RAW.GENERAL.AGILE<version>.<phys>List.<sim_type>.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.dat
+; - G4.RAW.KALMAN.AGILE<version>.<phys>List.<sim_type>.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.dat
 ; ---------> FITS files
-; - G4.RAW.AGILE<version>.<phys>List.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.fits
-; - L0.AGILE<version>.<phys>List.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.fits
-; - L0.5.DIGI.AGILE<version>.<phys>List.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.fits
-; - G4.AC.AGILE<version>.<phys>List.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.fits
-; - G4.CAL.AGILE<version>.<phys>List.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.fits 
+; - G4.RAW.AGILE<version>.<phys>List.<sim_type>.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.fits
+; - L0.AGILE<version>.<phys>List.<sim_type>.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.fits
+; - L0.5.DIGI.AGILE<version>.<phys>List.<sim_type>.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.fits
+; - G4.AC.AGILE<version>.<phys>List.<sim_type>.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.fits
+; - G4.CAL.AGILE<version>.<phys>List.<sim_type>.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.fits 
 ; ---------------------------------------------------------------------------------
 ; copyright            : (C) 2013 Valentina Fioretti
 ; email                : fioretti@iasfbo.inaf.it
@@ -37,13 +37,16 @@ pro agile_dhsim_file
 
 
 ; Variables initialization
-N_in = 0            ;--> Number of emitted photons
+N_in = 0UL            ;--> Number of emitted photons
 n_fits = 0           ;--> Number of FITS files produced by the simulation
 
 agile_version = ''
 sim_type = 0
 py_list = 0
+ene_range = 0
 ene_type = 0
+ene_min = 0
+ene_max = 0
 theta_type = 0
 phi_type = 0
 source_g = 0
@@ -53,7 +56,16 @@ read, sim_type, PROMPT='% - Enter simulation type [0 = general, 1 = Chen, 2: Vel
 read, py_list, PROMPT='% - Enter the Physics List [0 = QGSP_BERT_EMV, 100 = ARGO, 300 = FERMI]:'
 read, N_in, PROMPT='% - Enter the number of emitted photons:'
 read, n_fits, PROMPT='% - Enter number of FITS files:'
-read, ene_type, PROMPT='% - Enter energy:'
+read, ene_range, PROMPT='% - Enter energy distribution [0 = mono, 1 = range]:'
+if (ene_range EQ 0) then begin
+  read, ene_type, PROMPT='% - Enter energy [MeV]:'
+  ene_type = strtrim(string(ene_type),1)
+endif
+if (ene_range EQ 1) then begin
+    read, ene_min, PROMPT='% - Enter miminum energy [MeV]:' 
+    read, ene_max, PROMPT='% - Enter maximum energy [MeV]:'
+    ene_type = strtrim(string(ene_min),1)+'.'+strtrim(string(ene_max),1)
+endif
 read, theta_type, PROMPT='% - Enter theta:'
 read, phi_type, PROMPT='% - Enter phi:'
 read, source_g, PROMPT='% - Enter source geometry [0 = Point, 1 = Plane]:'
@@ -63,11 +75,11 @@ if (py_list EQ 0) then begin
    py_name = 'QGSP_BERT_EMV'
 endif
 if (py_list EQ 100) then begin
-   py_dir = '/100List'
+   py_dir = '100List'
    py_name = '100List'
 endif
 if (py_list EQ 300) then begin
-   py_dir = '/300List'
+   py_dir = '300List'
    py_name = '300List'
 endif
 
@@ -78,10 +90,10 @@ if (sim_type EQ 1) then begin
    sim_name = 'CHEN'
 endif
 if (sim_type EQ 2) then begin
-   sim_name = 'Vela'
+   sim_name = 'VELA'
 endif
 if (sim_type EQ 2) then begin
-   sim_name = 'Crab'
+   sim_name = 'CRAB'
 endif
 
 if (source_g EQ 0) then begin
@@ -144,14 +156,16 @@ if (agile_version EQ 'V2.0') then begin
     
 endif 
 
-filepath = '/Users/fioretti/data/BoGEMMS/AGILE'+agile_version+sdir+'/theta'+strtrim(string(theta_type),1)+'/'+stripDir+py_dir+'/'+strtrim(string(ene_type),1)+'MeV.'+sim_name+'.'+strtrim(string(theta_type),1)+'theta.'+strtrim(string(N_in),1)+'ph'
+run_path = GETENV('BGRUNS')
+
+filepath = run_path + '/AGILE'+agile_version+sdir+'/theta'+strtrim(string(theta_type),1)+'/'+stripDir+py_dir+'/'+ene_type+'MeV.'+sim_name+'.'+strtrim(string(theta_type),1)+'theta.'+strtrim(string(N_in),1)+'ph'
 print, 'BoGEMMS simulation path: ', filepath
 
-outdir = './AGILE'+agile_version+sdir+'/theta'+strtrim(string(theta_type),1)+'/'+stripDir+py_dir
+outdir = './AGILE'+agile_version+sdir+'/theta'+strtrim(string(theta_type),1)+'/'+stripDir+py_dir+'/'+sim_name+'/'+ene_type+'MeV/'+strtrim(string(N_in),1)+'ph'
 print, 'BoGEMMS outdir path: ', outdir
 
 CheckOutDir = DIR_EXIST( outdir)
-if (CheckOutDir EQ 0) then spawn,'mkdir -p ./AGILE'+agile_version+sdir+'/theta'+strtrim(string(theta_type),1)+'/'+stripDir+py_dir
+if (CheckOutDir EQ 0) then spawn,'mkdir -p ./AGILE'+agile_version+sdir+'/theta'+strtrim(string(theta_type),1)+'/'+stripDir+py_dir+'/'+sim_name+'/'+ene_type+'MeV/'+strtrim(string(N_in),1)+'ph'
 
 
 
@@ -410,6 +424,11 @@ for ifile=0, n_fits-1 do begin
                  
                      Strip_id_temp = vol_id(j) - tray_id_temp*tracker_vol_start - Si_id_temp       
                      Strip_id(j) = Strip_id_temp
+                     if (Strip_id(j) EQ 3072) then begin
+                      print, 'Strip ID: ', Strip_id(j)
+                      print, 'event_id: ', event_id(j)
+                     endif
+                     
          endelse
       endelse
     endfor
@@ -451,13 +470,13 @@ for ifile=0, n_fits-1 do begin
     
     hdr_rawData = ['COMMENT  AGILE '+agile_version+' Geant4 simulation', $
                    'N_in     = '+strtrim(string(N_in),1), $
-                   'Energy     = '+strtrim(string(ene_type),1), $
+                   'Energy     = '+ene_type, $
                    'Theta     = '+strtrim(string(theta_type),1), $
                    'Phi     = '+strtrim(string(phi_type),1), $
                    'Position unit = cm', $
                    'Energy unit = keV']
     
-    MWRFITS, rawData, outdir+'/G4.RAW.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+strmid(strtrim(string(ene_type),1),0,10)+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', hdr_rawData, /create
+    MWRFITS, rawData, outdir+'/G4.RAW.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', hdr_rawData, /create
     
     x_pos = dblarr(n_elements(ent_x))
     y_pos = dblarr(n_elements(ent_x))
@@ -469,7 +488,7 @@ for ifile=0, n_fits-1 do begin
      z_pos(j) = ent_z(j) + ((exit_z(j) - ent_z(j))/2.)
     endfor
     
-    openw,lun, outdir+'/G4.RAW.KALMAN.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+strmid(strtrim(string(ene_type),1),0,10)+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
+    openw,lun, outdir+'/G4.RAW.KALMAN.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
     ; ASCII Columns:
     ; - c1 = event id
     ; - c2 = Silicon layer ID
@@ -515,7 +534,7 @@ for ifile=0, n_fits-1 do begin
     
     Free_lun, lun
     
-    openw,lun,outdir+'/G4.RAW.GENERAL.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+strmid(strtrim(string(ene_type),1),0,10)+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
+    openw,lun,outdir+'/G4.RAW.GENERAL.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
     ; ASCII Columns:
     ; - c1 = event ID
     ; - c2 = Silicon layer ID
@@ -1095,13 +1114,13 @@ for ifile=0, n_fits-1 do begin
               'BoGEMMS release  = AGILE '+agile_version, $
               'N_IN             = '+STRTRIM(STRING(N_IN),1)+'   /Number of simulated particles', $
               'N_TRIG           = '+STRTRIM(STRING(N_TRIG),1)+'   /Number of triggering events', $
-              'ENERGY           = '+STRTRIM(STRING(ENE_TYPE),1)+'   /Simulated input energy', $
+              'ENERGY           = '+ene_type+'   /Simulated input energy', $
               'THETA            = '+STRTRIM(STRING(THETA_TYPE),1)+'   /Simulated input theta angle', $
               'PHI              = '+STRTRIM(STRING(PHI_TYPE),1)+'   /Simulated input phi angle', $
               'ENERGY UNIT      = KEV']
     
     
-    MWRFITS, L0TRACKERGLOBAL, outdir+'/L0.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+STRMID(STRTRIM(STRING(N_IN),1),0,10)+'ph.'+STRMID(STRTRIM(STRING(ENE_TYPE),1),0,10)+'MeV.'+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+'.'+STRMID(STRTRIM(STRING(PHI_TYPE),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', HDR_L0GLOBAL, /CREATE
+    MWRFITS, L0TRACKERGLOBAL, outdir+'/L0.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+STRMID(STRTRIM(STRING(N_IN),1),0,10)+'ph.'+ene_type+'MeV.'+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+'.'+STRMID(STRTRIM(STRING(PHI_TYPE),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', HDR_L0GLOBAL, /CREATE
     
     
     print, '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
@@ -1528,13 +1547,13 @@ for ifile=0, n_fits-1 do begin
               'BoGEMMS release  = AGILE '+agile_version, $
               'N_IN             = '+STRTRIM(STRING(N_IN),1)+'   /Number of simulated particles', $
               'N_TRIG           = '+STRTRIM(STRING(N_TRIG),1)+'   /Number of triggering events', $
-              'ENERGY           = '+STRTRIM(STRING(ENE_TYPE),1)+'   /Simulated input energy', $
+              'ENERGY           = '+ene_type+'   /Simulated input energy', $
               'THETA            = '+STRTRIM(STRING(THETA_TYPE),1)+'   /Simulated input theta angle', $
               'PHI              = '+STRTRIM(STRING(PHI_TYPE),1)+'   /Simulated input phi angle', $
               'ENERGY UNIT      = KEV']
     
     
-    MWRFITS, L05TRACKERGLOBAL, outdir+'/L0.5.DIGI.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+STRMID(STRTRIM(STRING(N_IN),1),0,10)+'ph.'+STRMID(STRTRIM(STRING(ENE_TYPE),1),0,10)+'MeV.'+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+'.'+STRMID(STRTRIM(STRING(PHI_TYPE),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', HDR_L05GLOBAL, /CREATE
+    MWRFITS, L05TRACKERGLOBAL, outdir+'/L0.5.DIGI.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+STRMID(STRTRIM(STRING(N_IN),1),0,10)+'ph.'+ene_type+'MeV.'+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+'.'+STRMID(STRTRIM(STRING(PHI_TYPE),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', HDR_L05GLOBAL, /CREATE
     
     
     print, '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
@@ -1544,7 +1563,7 @@ for ifile=0, n_fits-1 do begin
     print, '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
     
     
-    openw,lun,outdir+'/G4.DIGI.KALMAN.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+strmid(strtrim(string(ene_type),1),0,10)+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
+    openw,lun,outdir+'/G4.DIGI.KALMAN.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
     ; ASCII Columns:
     ; - c1 = event ID
     ; - c2 = Silicon layer ID
@@ -1592,7 +1611,7 @@ for ifile=0, n_fits-1 do begin
     
     Free_lun, lun
     
-    openw,lun,outdir+'/G4.DIGI.GENERAL.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+strmid(strtrim(string(ene_type),1),0,10)+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
+    openw,lun,outdir+'/G4.DIGI.GENERAL.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
     ; ASCII Columns:
     ; - c1 = event ID
     ; - c2 = Silicon layer ID
@@ -1645,7 +1664,7 @@ for ifile=0, n_fits-1 do begin
     print, '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
     
     
-    openw,lun,outdir+'/G4_GAMS_YPLANE_AGILE'+agile_version+'_'+py_name+'_'+sim_name+'.'+stripname+'_'+sname+'_'+strmid(strtrim(string(N_in),1),0,10)+'ph_'+strmid(strtrim(string(ene_type),1),0,10)+'MeV_'+strmid(strtrim(string(theta_type),1),0,10)+'_'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
+    openw,lun,outdir+'/G4_GAMS_YPLANE_AGILE'+agile_version+'_'+py_name+'_'+sim_name+'_'+stripname+'_'+sname+'_'+strmid(strtrim(string(N_in),1),0,10)+'ph_'+ene_type+'MeV_'+strmid(strtrim(string(theta_type),1),0,10)+'_'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
     ; ASCII Columns:
     ; - c1 = event ID
     ; - c2 = plane ID
@@ -1672,9 +1691,11 @@ for ifile=0, n_fits-1 do begin
         ; The energy deposit is converted to MIP
         Glob_energy_dep_mip_acap_temp = Glob_energy_dep_acap_temp/108.
         where_x = where(Glob_Si_id_acap_temp EQ 0)
+        ; The event id starts from 1 (1 added in the file writing)
+        ; The Strip ID starts from 1 (1 added in the file writing)
         if (where_x(0) NE -1) then begin
          for r=0l, n_elements(where_x)-1 do begin
-            printf, lun, (Glob_event_id_acap(j)+1), Glob_plane_id_acap_temp(where_x(r)), Glob_Strip_readout_id_acap_temp(where_x(r)), -999, -999, Glob_energy_dep_mip_acap_temp(where_x(r)), -999, format='(I5,I5,I5,I5,I5,F10.5,I5)'
+            printf, lun, (Glob_event_id_acap(j)+1), Glob_plane_id_acap_temp(where_x(r)), (Glob_Strip_readout_id_acap_temp(where_x(r)) + 1), -999, -999, Glob_energy_dep_mip_acap_temp(where_x(r)), -999, format='(I5,I5,I5,I5,I5,F10.5,I5)'
             
          endfor
         endif
@@ -1686,7 +1707,7 @@ for ifile=0, n_fits-1 do begin
     
     Free_lun, lun
     
-    openw,lun,outdir+'/G4_GAMS_XPLANE_AGILE'+agile_version+'_'+py_name+'_'+sim_name+'.'+stripname+'_'+sname+'_'+strmid(strtrim(string(N_in),1),0,10)+'ph_'+strmid(strtrim(string(ene_type),1),0,10)+'MeV_'+strmid(strtrim(string(theta_type),1),0,10)+'_'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
+    openw,lun,outdir+'/G4_GAMS_XPLANE_AGILE'+agile_version+'_'+py_name+'_'+sim_name+'_'+stripname+'_'+sname+'_'+strmid(strtrim(string(N_in),1),0,10)+'ph_'+ene_type+'MeV_'+strmid(strtrim(string(theta_type),1),0,10)+'_'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
     ; ASCII Columns:
     ; - c1 = event ID
     ; - c2 = plane ID
@@ -1718,11 +1739,13 @@ for ifile=0, n_fits-1 do begin
         for jstrip=0, n_elements(Glob_Strip_readout_id_acap_temp)-1 do begin
             Glob_Strip_GAMS_id_acap_temp(jstrip) = ((N_strip/2)-1) - Glob_Strip_readout_id_acap_temp(jstrip)   
         endfor
-            
+        
+        ; The event id starts from 1 (1 added in the file writing)
+        ; The Strip ID starts from 1 (1 added in the file writing)  
         where_y = where(Glob_Si_id_acap_temp EQ 1)    
         if (where_y(0) NE -1) then begin
          for r=0l, n_elements(where_y)-1 do begin
-            printf, lun, (Glob_event_id_acap(j)+1), Glob_plane_id_acap_temp(where_y(r)), Glob_Strip_GAMS_id_acap_temp(where_y(r)), -999, -999, Glob_energy_dep_mip_acap_temp(where_y(r)), -999, format='(I5,I5,I5,I5,I5,F10.5,I5)'
+            printf, lun, (Glob_event_id_acap(j)+1), Glob_plane_id_acap_temp(where_y(r)), (Glob_Strip_GAMS_id_acap_temp(where_y(r)) + 1), -999, -999, Glob_energy_dep_mip_acap_temp(where_y(r)), -999, format='(I5,I5,I5,I5,I5,F10.5,I5)'
             
          endfor
         endif
@@ -1850,14 +1873,14 @@ for ifile=0, n_fits-1 do begin
     
     hdr_calInput = ['COMMENT  AGILE V2.0 Geant4 simulation', $
                    'N_in     = '+strtrim(string(N_in),1), $
-                   'Energy     = '+strtrim(string(ene_type),1), $
+                   'Energy     = '+ene_type, $
                    'Theta     = '+strtrim(string(theta_type),1), $
                    'Phi     = '+strtrim(string(phi_type),1), $
                    'Energy unit = GeV']
     
-    MWRFITS, calInput, outdir+'/G4.CAL.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+strmid(strtrim(string(ene_type),1),0,10)+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', hdr_calInput, /create
+    MWRFITS, calInput, outdir+'/G4.CAL.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', hdr_calInput, /create
     
-    openw,lun,outdir+'/G4_GAMS_CAL_AGILE'+agile_version+'_'+py_name+'_'+sim_name+'.'+stripname+'_'+sname+'_'+strmid(strtrim(string(N_in),1),0,10)+'ph_'+strmid(strtrim(string(ene_type),1),0,10)+'MeV_'+strmid(strtrim(string(theta_type),1),0,10)+'_'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
+    openw,lun,outdir+'/G4_GAMS_CAL_AGILE'+agile_version+'_'+py_name+'_'+sim_name+'_'+stripname+'_'+sname+'_'+strmid(strtrim(string(N_in),1),0,10)+'ph_'+ene_type+'MeV_'+strmid(strtrim(string(theta_type),1),0,10)+'_'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
     ; ASCII Columns:
     ; - c1 = event ID
     ; - c2 = bar plane 
@@ -1995,14 +2018,14 @@ for ifile=0, n_fits-1 do begin
     
     hdr_acInput = ['COMMENT  AGILE V2.0 Geant4 simulation', $
                    'N_in     = '+strtrim(string(N_in),1), $
-                   'Energy     = '+strtrim(string(ene_type),1), $
+                   'Energy     = '+ene_type, $
                    'Theta     = '+strtrim(string(theta_type),1), $
                    'Phi     = '+strtrim(string(phi_type),1), $
                    'Energy unit = GeV']
     
-    MWRFITS, acInput, outdir+'/G4.AC.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+strmid(strtrim(string(ene_type),1),0,10)+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', hdr_acInput, /create
+    MWRFITS, acInput, outdir+'/G4.AC.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', hdr_acInput, /create
     
-    openw,lun,outdir+'/G4_GAMS_AC_AGILE'+agile_version+'_'+py_name+'_'+sim_name+'.'+stripname+'_'+sname+'_'+strmid(strtrim(string(N_in),1),0,10)+'ph_'+strmid(strtrim(string(ene_type),1),0,10)+'MeV_'+strmid(strtrim(string(theta_type),1),0,10)+'_'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
+    openw,lun,outdir+'/G4_GAMS_AC_AGILE'+agile_version+'_'+py_name+'_'+sim_name+'_'+stripname+'_'+sname+'_'+strmid(strtrim(string(N_in),1),0,10)+'ph_'+ene_type+'MeV_'+strmid(strtrim(string(theta_type),1),0,10)+'_'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
     ; ASCII Columns:
     ; - c1 = event ID
     ; - c2 = AC panel

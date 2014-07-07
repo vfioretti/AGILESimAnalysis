@@ -15,6 +15,13 @@
 
 pro AGILEV2_geometry
 
+outdir = './conf/
+print, 'Configuration files path: ', outdir
+
+CheckOutDir = DIR_EXIST( outdir)
+if (CheckOutDir EQ 0) then spawn,'mkdir -p ./conf'
+
+
 theta_deg = 30.0d
 phi_deg = 225.d
 theta = theta_deg*(!PI/180.d)
