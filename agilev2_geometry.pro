@@ -23,7 +23,7 @@ if (CheckOutDir EQ 0) then spawn,'mkdir -p ./conf'
 
 
 theta_deg = 30.0d
-phi_deg = 225.d
+phi_deg = 292.5d
 theta = theta_deg*(!PI/180.d)
 phi = phi_deg*(!PI/180.d)
 
@@ -272,8 +272,9 @@ h_r = h_s - h_t
 
 ; source distance from (0,0)
 radius = h_r*tan(theta)
-x_s = ((sin(phi))*radius)
-y_s = ((cos(phi))*radius)
+x_s = ((cos(phi))*radius)
+y_s = ((sin(phi))*radius)
+
 
 P_x = -sin(theta)*cos(phi)
 P_y = -sin(theta)*sin(phi)
