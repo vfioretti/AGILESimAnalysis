@@ -50,6 +50,8 @@ ene_max = 0
 theta_type = 0
 phi_type = 0
 source_g = 0
+ene_min = 0
+ene_max = 0
 
 read, agile_version, PROMPT='% - Enter AGILE release (e.g. V1.4):'
 read, sim_type, PROMPT='% - Enter simulation type [0 = general, 1 = Chen, 2: Vela, 3: Crab]:'
@@ -92,7 +94,7 @@ endif
 if (sim_type EQ 2) then begin
    sim_name = 'VELA'
 endif
-if (sim_type EQ 2) then begin
+if (sim_type EQ 3) then begin
    sim_name = 'CRAB'
 endif
 

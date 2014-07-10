@@ -16,6 +16,10 @@
 ; - G4_GAMS_YPLANE_AGILE<version>_<phys>List_<sim_type>_<strip>_<point>_<n_in>ph_<energy>MeV_<theta>_<phi>.all.dat
 ; - G4_GAMS_CAL_AGILE<version>_<phys>List_<sim_type>_<strip>_<point>_<n_in>ph_<energy>MeV_<theta>_<phi>.all.dat
 ; - G4_GAMS_AC_AGILE<version>_<phys>List_<sim_type>_<strip>_<point>_<n_in>ph_<energy>MeV_<theta>_<phi>.all.dat
+; - stripx.dat
+; - stripy.dat
+; - ac.dat
+; - calo.dat
 ; ---------> FITS files
 ; - G4.RAW.AGILE<version>.<phys>List.<sim_type>.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.all.fits
 ; - L0.AGILE<version>.<phys>List.<sim_type>.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.all.fits
@@ -45,6 +49,8 @@ ene_type = 0
 theta_type = 0
 phi_type = 0
 source_g = 0
+ene_min = 0
+ene_max = 0
 
 read, agile_version, PROMPT='% - Enter AGILE release (e.g. V1.4):'
 read, sim_type, PROMPT='% - Enter simulation type [0 = general, 1 = Chen, 2: Vela, 3: Crab]:'
@@ -85,10 +91,10 @@ if (sim_type EQ 1) then begin
    sim_name = 'CHEN'
 endif
 if (sim_type EQ 2) then begin
-   sim_name = 'Vela'
+   sim_name = 'VELA'
 endif
-if (sim_type EQ 2) then begin
-   sim_name = 'Crab'
+if (sim_type EQ 3) then begin
+   sim_name = 'CRAB'
 endif
 
 if (source_g EQ 0) then begin
