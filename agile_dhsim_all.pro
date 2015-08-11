@@ -53,9 +53,9 @@ ene_min = 0
 ene_max = 0
 
 read, agile_version, PROMPT='% - Enter AGILE release (e.g. V1.4):'
-read, sim_type, PROMPT='% - Enter simulation type [0 = general, 1 = Chen, 2: Vela, 3: Crab]:'
+read, sim_type, PROMPT='% - Enter simulation type [0 = Mono, 1 = Chen, 2: Vela, 3: Crab, 4: G400, 5 = SS]:'
 read, n_files, PROMPT='% - Enter number of input files:'
-read, py_list, PROMPT='% - Enter the Physics List [0 = QGSP_BERT_EMV, 100 = ARGO, 300 = FERMI]:'
+read, py_list, PROMPT='% - Enter the Physics List [0 = QGSP_BERT_EMV, 100 = ARGO, 300 = FERMI, 400 = ASTROMEV]:'
 read, N_in, PROMPT='% - Enter the number of emitted photons:'
 read, ene_range, PROMPT='% - Enter energy distribution [0 = mono, 1 = range]:'
 if (ene_range EQ 0) then begin
@@ -83,9 +83,13 @@ if (py_list EQ 300) then begin
    py_dir = '/300List'
    py_name = '300List'
 endif
+if (py_list EQ 400) then begin
+   py_dir = 'ASTROMEV'
+   py_name = 'ASTROMEV'
+endif
 
 if (sim_type EQ 0) then begin
-   sim_name = ''
+   sim_name = 'MONO'
 endif
 if (sim_type EQ 1) then begin
    sim_name = 'CHEN'
@@ -95,6 +99,12 @@ if (sim_type EQ 2) then begin
 endif
 if (sim_type EQ 3) then begin
    sim_name = 'CRAB'
+endif
+if (sim_type EQ 4) then begin
+   sim_name = 'G410'
+endif
+if (sim_type EQ 5) then begin
+   sim_name = 'SS'
 endif
 
 if (source_g EQ 0) then begin
@@ -115,7 +125,7 @@ if ((isStrip EQ 1) AND (repli EQ 1)) then stripDir = 'StripRepli/'
 
 if (isStrip EQ 0) then stripname = 'NOSTRIP'
 if ((isStrip EQ 1) AND (repli EQ 0)) then stripname = 'STRIP'
-if ((isStrip EQ 1) AND (repli EQ 1)) then stripname = 'STRIP.REPLI/'
+if ((isStrip EQ 1) AND (repli EQ 1)) then stripname = 'STRIP.REPLI'
 
 
 ; Reading the FITS files

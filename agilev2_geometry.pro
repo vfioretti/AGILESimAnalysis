@@ -23,7 +23,8 @@ if (CheckOutDir EQ 0) then spawn,'mkdir -p ./conf'
 
 
 theta_deg = 30.0d
-phi_deg = 292.5d
+;phi_deg = 292.5d
+phi_deg = 225d
 theta = theta_deg*(!PI/180.d)
 phi = phi_deg*(!PI/180.d)
 

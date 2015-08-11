@@ -22,7 +22,7 @@
 ; - L0.5.DIGI.AGILE<version>.<phys>List.<sim_type>.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.fits
 ; - G4.AC.AGILE<version>.<phys>List.<sim_type>.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.fits
 ; - G4.CAL.AGILE<version>.<phys>List.<sim_type>.<strip>.<point>.<n_in>ph.<energy>MeV.<theta>.<phi>.<file>.fits 
-; ---------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------------
 ; copyright            : (C) 2013 Valentina Fioretti
 ; email                : fioretti@iasfbo.inaf.it
 ; ----------------------------------------------
@@ -54,8 +54,8 @@ ene_min = 0
 ene_max = 0
 
 read, agile_version, PROMPT='% - Enter AGILE release (e.g. V1.4):'
-read, sim_type, PROMPT='% - Enter simulation type [0 = general, 1 = Chen, 2: Vela, 3: Crab]:'
-read, py_list, PROMPT='% - Enter the Physics List [0 = QGSP_BERT_EMV, 100 = ARGO, 300 = FERMI]:'
+read, sim_type, PROMPT='% - Enter simulation type [0 = Mono, 1 = Chen, 2: Vela, 3: Crab, 4: G400, 5 = SS]:'
+read, py_list, PROMPT='% - Enter the Physics List [0 = QGSP_BERT_EMV, 100 = ARGO, 300 = FERMI, 400 = ASTROMEV]:'
 read, N_in, PROMPT='% - Enter the number of emitted photons:'
 read, n_fits, PROMPT='% - Enter number of FITS files:'
 read, ene_range, PROMPT='% - Enter energy distribution [0 = mono, 1 = range]:'
@@ -84,9 +84,13 @@ if (py_list EQ 300) then begin
    py_dir = '300List'
    py_name = '300List'
 endif
+if (py_list EQ 400) then begin
+   py_dir = 'ASTROMEV'
+   py_name = 'ASTROMEV'
+endif
 
 if (sim_type EQ 0) then begin
-   sim_name = ''
+   sim_name = 'MONO'
 endif
 if (sim_type EQ 1) then begin
    sim_name = 'CHEN'
@@ -96,6 +100,12 @@ if (sim_type EQ 2) then begin
 endif
 if (sim_type EQ 3) then begin
    sim_name = 'CRAB'
+endif
+if (sim_type EQ 4) then begin
+   sim_name = 'G400'
+endif
+if (sim_type EQ 5) then begin
+   sim_name = 'SS'
 endif
 
 if (source_g EQ 0) then begin
@@ -116,7 +126,7 @@ if ((isStrip EQ 1) AND (repli EQ 1)) then stripDir = 'StripRepli/'
 
 if (isStrip EQ 0) then stripname = 'NOSTRIP'
 if ((isStrip EQ 1) AND (repli EQ 0)) then stripname = 'STRIP'
-if ((isStrip EQ 1) AND (repli EQ 1)) then stripname = 'STRIP.REPLI/'
+if ((isStrip EQ 1) AND (repli EQ 1)) then stripname = 'STRIP.REPLI'
 
 ; setting specific agile version variables 
 if (agile_version EQ 'V2.0') then begin
@@ -240,7 +250,7 @@ for ifile=0, n_fits-1 do begin
     for k=0l, n_elements(struct)-1l do begin 
     
     ; Reading the tracker (events with E > 0)                
-     if (struct(k).VOLUME_ID GE tracker_vol_start) then begin
+     if ((struct(k).VOLUME_ID GE tracker_vol_start) or (struct(k).MOTHER_ID GE tracker_vol_start)) then begin
       if (struct(k).E_DEP GT 0.d) then begin        
 
          event_id = [event_id, struct(k).EVT_ID] 
@@ -314,6 +324,10 @@ for ifile=0, n_fits-1 do begin
     vol_id = vol_id[1:*]
     moth_id = moth_id[1:*]
     energy_dep = energy_dep[1:*]
+    
+    if (Repli EQ 1) then begin
+      vol_id = vol_id + moth_id
+    endif
 
     ent_x = (ent_x[1:*])/10.
     ent_y = (ent_y[1:*])/10.
@@ -397,41 +411,27 @@ for ifile=0, n_fits-1 do begin
             tray_id(j) = (vol_id(j)-tracker_x_y_diff)/tracker_vol_start
        endelse
             Strip_id(j) = 0
-      endif else begin
-       if (Repli EQ 1) then begin    ;--------> STRIP = 1, REPLI = 1
-                    div_id = (moth_id(j))/tracker_vol_start
-                    div_type = moth_id(j) mod tracker_vol_start
-                    Strip_id(j) = vol_id(j) - tracker_vol_start  
-                    if (div_type EQ 0) then begin
-                     Si_id(j) = 0 
-                     tray_id(j) = div_id
-                    endif else begin
-                     Si_id(j) = 1
-                     tray_id(j) = (vol_id(j)-tracker_x_y_diff)/tracker_vol_start
-                    endelse
-       endif else begin    ;--------> STRIP = 1, REPLI = 0
-                     where_greater_X = where(Si_X_arr GT vol_id(j))
-                     where_greater_Y = where(Si_Y_arr GT vol_id(j))
-                          
-                     if (where_greater_X(0) NE -1) then begin
-                      tray_id_temp = where_greater_X(0)
-                      if (where_greater_X(0) EQ where_greater_Y(0)) then Si_id_temp = tracker_x_y_diff else Si_id_temp = 0
-                     endif else begin
-                      Si_id_temp = 0              
-                      tray_id_temp = n_elements(Si_X_arr)
-                     endelse
+     endif else begin
+           where_greater_X = where(Si_X_arr GT vol_id(j))
+           where_greater_Y = where(Si_Y_arr GT vol_id(j))
+                
+           if (where_greater_X(0) NE -1) then begin
+            tray_id_temp = where_greater_X(0)
+            if (where_greater_X(0) EQ where_greater_Y(0)) then Si_id_temp = tracker_x_y_diff else Si_id_temp = 0
+           endif else begin
+            Si_id_temp = 0              
+            tray_id_temp = n_elements(Si_X_arr)
+           endelse
 
-                     tray_id(j) = tray_id_temp
-                     if (Si_id_temp EQ 0) then Si_id(j) = 0 else Si_id(j) = 1
-                 
-                     Strip_id_temp = vol_id(j) - tray_id_temp*tracker_vol_start - Si_id_temp       
-                     Strip_id(j) = Strip_id_temp
-                     if (Strip_id(j) EQ 3072) then begin
-                      print, 'Strip ID: ', Strip_id(j)
-                      print, 'event_id: ', event_id(j)
-                     endif
-                     
-         endelse
+           tray_id(j) = tray_id_temp
+           if (Si_id_temp EQ 0) then Si_id(j) = 0 else Si_id(j) = 1
+       
+           Strip_id_temp = vol_id(j) - tray_id_temp*tracker_vol_start - Si_id_temp       
+           Strip_id(j) = Strip_id_temp
+           if (Strip_id(j) EQ 3072) then begin
+            print, 'Strip ID: ', Strip_id(j)
+            print, 'event_id: ', event_id(j)
+           endif
       endelse
     endfor
     
@@ -642,58 +642,6 @@ for ifile=0, n_fits-1 do begin
         endif else break
      endwhile
     endif else begin
-     if (repli EQ 1) then begin   ; -------> STRIP EQ 1, REPLI EQ 1
-     
-      uniq_vol_id = intarr(n_elements(vol_id))
-      for l=0l, n_elements(vol_id)-1 do begin
-        if (Si_id(l) EQ 0) then Si_layer = 0 else Si_layer = tracker_x_y_diff
-        uniq_vol_id(l) = (tray_id(l)*tracker_vol_start) + Si_layer + Stri_id(l)
-      endfor
-      
-      j=0l
-      while (1) do begin
-    
-         N_trig = N_trig + 1
-         event_array = [event_array, event_id(j)]
-    
-         where_event_eq = where(event_id EQ event_id(j))
-         vol_id_temp = uniq_vol_id(where_event_eq) 
-         moth_id_temp = moth_id(where_event_eq) 
-         Strip_id_temp = Strip_id(where_event_eq) 
-         Si_id_temp = Si_id(where_event_eq) 
-         tray_id_temp = tray_id(where_event_eq) 
-         plane_id_temp = plane_id(where_event_eq) 
-         energy_dep_temp = energy_dep(where_event_eq) 
-        
-         r = 0l
-         while(1) do begin
-            where_vol_eq = where(vol_id_temp EQ vol_id_temp(r), complement = where_other_vol)
-            event_id_tot = [event_id_tot, event_id(j)]
-            vol_id_tot = [vol_id_tot, vol_id_temp(r)]
-            moth_id_tot = [moth_id_tot, moth_id_temp(r)]
-            Strip_id_tot = [Strip_id_tot, Strip_id_temp(r)]
-            Si_id_tot = [Si_id_tot, Si_id_temp(r)]
-            tray_id_tot = [tray_id_tot, tray_id_temp(r)]
-            plane_id_tot = [plane_id_tot, plane_id_temp(r)]
-            energy_dep_tot = [energy_dep_tot, total(energy_dep_temp(where_vol_eq))]
-            if (where_other_vol(0) NE -1) then begin
-              vol_id_temp = vol_id_temp(where_other_vol)
-              moth_id_temp = moth_id_temp(where_other_vol)
-              Strip_id_temp = Strip_id_temp(where_other_vol)
-              Si_id_temp = Si_id_temp(where_other_vol)
-              tray_id_temp = tray_id_temp(where_other_vol)
-              plane_id_temp = plane_id_temp(where_other_vol)
-              energy_dep_temp = energy_dep_temp(where_other_vol)
-            endif else break
-         endwhile
-        
-         N_event_eq = n_elements(where_event_eq)
-         if where_event_eq(N_event_eq-1) LT (n_elements(event_id)-1) then begin
-           j = where_event_eq(N_event_eq-1)+1
-         endif else break
-      endwhile
-     endif else begin   ; -------> STRIP EQ 1, REPLI EQ 0
-       
       j=0l
       while (1) do begin
          where_event_eq = where(event_id EQ event_id(j))
@@ -736,7 +684,6 @@ for ifile=0, n_fits-1 do begin
            j = where_event_eq(N_event_eq-1)+1
          endif else break
       endwhile
-     endelse
     endelse
     
     
