@@ -41,6 +41,7 @@ N_in = 0UL            ;--> Number of emitted photons
 n_fits = 0           ;--> Number of FITS files produced by the simulation
 
 agile_version = ''
+out_type = 0
 sim_type = 0
 py_list = 0
 ene_range = 0
@@ -54,6 +55,7 @@ ene_min = 0
 ene_max = 0
 
 read, agile_version, PROMPT='% - Enter AGILE release (e.g. V1.4):'
+read, out_type, PROMPT='% - Enter simulation output type (0: FULL, 1: only DHSim):'
 read, sim_type, PROMPT='% - Enter simulation type [0 = Mono, 1 = Chen, 2: Vela, 3: Crab, 4: G400, 5 = SS]:'
 read, py_list, PROMPT='% - Enter the Physics List [0 = QGSP_BERT_EMV, 100 = ARGO, 300 = FERMI, 400 = ASTROMEV]:'
 read, N_in, PROMPT='% - Enter the number of emitted photons:'
@@ -126,7 +128,7 @@ if ((isStrip EQ 1) AND (repli EQ 1)) then stripDir = 'StripRepli/'
 
 if (isStrip EQ 0) then stripname = 'NOSTRIP'
 if ((isStrip EQ 1) AND (repli EQ 0)) then stripname = 'STRIP'
-if ((isStrip EQ 1) AND (repli EQ 1)) then stripname = 'STRIP.REPLI'
+if ((isStrip EQ 1) AND (repli EQ 1)) then stripname = 'STRIP.REPLI/'
 
 ; setting specific agile version variables 
 if (agile_version EQ 'V2.0') then begin
@@ -324,7 +326,7 @@ for ifile=0, n_fits-1 do begin
     vol_id = vol_id[1:*]
     moth_id = moth_id[1:*]
     energy_dep = energy_dep[1:*]
-    
+
     if (Repli EQ 1) then begin
       vol_id = vol_id + moth_id
     endif
@@ -411,27 +413,41 @@ for ifile=0, n_fits-1 do begin
             tray_id(j) = (vol_id(j)-tracker_x_y_diff)/tracker_vol_start
        endelse
             Strip_id(j) = 0
-     endif else begin
-           where_greater_X = where(Si_X_arr GT vol_id(j))
-           where_greater_Y = where(Si_Y_arr GT vol_id(j))
-                
-           if (where_greater_X(0) NE -1) then begin
-            tray_id_temp = where_greater_X(0)
-            if (where_greater_X(0) EQ where_greater_Y(0)) then Si_id_temp = tracker_x_y_diff else Si_id_temp = 0
-           endif else begin
-            Si_id_temp = 0              
-            tray_id_temp = n_elements(Si_X_arr)
-           endelse
+      endif else begin
+       if (Repli EQ 1) then begin    ;--------> STRIP = 1, REPLI = 1
+                    div_id = (moth_id(j))/tracker_vol_start
+                    div_type = moth_id(j) mod tracker_vol_start
+                    Strip_id(j) = vol_id(j) - tracker_vol_start  
+                    if (div_type EQ 0) then begin
+                     Si_id(j) = 0 
+                     tray_id(j) = div_id
+                    endif else begin
+                     Si_id(j) = 1
+                     tray_id(j) = (vol_id(j)-tracker_x_y_diff)/tracker_vol_start
+                    endelse
+       endif else begin    ;--------> STRIP = 1, REPLI = 0
+                     where_greater_X = where(Si_X_arr GT vol_id(j))
+                     where_greater_Y = where(Si_Y_arr GT vol_id(j))
+                          
+                     if (where_greater_X(0) NE -1) then begin
+                      tray_id_temp = where_greater_X(0)
+                      if (where_greater_X(0) EQ where_greater_Y(0)) then Si_id_temp = tracker_x_y_diff else Si_id_temp = 0
+                     endif else begin
+                      Si_id_temp = 0              
+                      tray_id_temp = n_elements(Si_X_arr)
+                     endelse
 
-           tray_id(j) = tray_id_temp
-           if (Si_id_temp EQ 0) then Si_id(j) = 0 else Si_id(j) = 1
-       
-           Strip_id_temp = vol_id(j) - tray_id_temp*tracker_vol_start - Si_id_temp       
-           Strip_id(j) = Strip_id_temp
-           if (Strip_id(j) EQ 3072) then begin
-            print, 'Strip ID: ', Strip_id(j)
-            print, 'event_id: ', event_id(j)
-           endif
+                     tray_id(j) = tray_id_temp
+                     if (Si_id_temp EQ 0) then Si_id(j) = 0 else Si_id(j) = 1
+                 
+                     Strip_id_temp = vol_id(j) - tray_id_temp*tracker_vol_start - Si_id_temp       
+                     Strip_id(j) = Strip_id_temp
+                     if (Strip_id(j) EQ 3072) then begin
+                      print, 'Strip ID: ', Strip_id(j)
+                      print, 'event_id: ', event_id(j)
+                     endif
+                     
+         endelse
       endelse
     endfor
     
@@ -453,133 +469,136 @@ for ifile=0, n_fits-1 do begin
         if (temp_plane_y GT 0) then plane_id(j) = temp_plane_y else plane_id(j) = (-1.*temp_plane_y) + 2
      endif
     endfor
+ 	
+ 	if (out_type EQ 0) then begin   
+	    CREATE_STRUCT, rawData, 'rawData', ['EVT_ID', 'TRK_FLAG', 'TRAY_ID', 'PLANE_ID', 'STRIP_ID', 'E_DEP', 'X_ENT', 'Y_ENT', 'Z_ENT', 'X_EXIT', 'Y_EXIT', 'Z_EXIT'], $
+    	'I,I,I,I,I,F20.5,F20.5,F20.5,F20.5,F20.5,F20.5,F20.5', DIMEN = n_elements(event_id)
+    	rawData.EVT_ID = event_id
+	    rawData.TRK_FLAG = Si_id
+	    rawData.TRAY_ID = tray_id
+	    rawData.PLANE_ID = plane_id
+	    rawData.STRIP_ID = Strip_id
+	    rawData.E_DEP = energy_dep
+	    rawData.X_ENT = ent_x
+	    rawData.Y_ENT = ent_y
+	    rawData.Z_ENT = ent_z
+	    rawData.X_EXIT = exit_x
+	    rawData.Y_EXIT = exit_y
+	    rawData.Z_EXIT = exit_z
     
-    CREATE_STRUCT, rawData, 'rawData', ['EVT_ID', 'TRK_FLAG', 'TRAY_ID', 'PLANE_ID', 'STRIP_ID', 'E_DEP', 'X_ENT', 'Y_ENT', 'Z_ENT', 'X_EXIT', 'Y_EXIT', 'Z_EXIT'], $
-    'I,I,I,I,I,F20.5,F20.5,F20.5,F20.5,F20.5,F20.5,F20.5', DIMEN = n_elements(event_id)
-    rawData.EVT_ID = event_id
-    rawData.TRK_FLAG = Si_id
-    rawData.TRAY_ID = tray_id
-    rawData.PLANE_ID = plane_id
-    rawData.STRIP_ID = Strip_id
-    rawData.E_DEP = energy_dep
-    rawData.X_ENT = ent_x
-    rawData.Y_ENT = ent_y
-    rawData.Z_ENT = ent_z
-    rawData.X_EXIT = exit_x
-    rawData.Y_EXIT = exit_y
-    rawData.Z_EXIT = exit_z
     
+	    hdr_rawData = ['COMMENT  AGILE '+agile_version+' Geant4 simulation', $
+	                   'N_in     = '+strtrim(string(N_in),1), $
+	                   'Energy     = '+ene_type, $
+	                   'Theta     = '+strtrim(string(theta_type),1), $
+	                   'Phi     = '+strtrim(string(phi_type),1), $
+	                   'Position unit = cm', $
+	                   'Energy unit = keV']
     
-    hdr_rawData = ['COMMENT  AGILE '+agile_version+' Geant4 simulation', $
-                   'N_in     = '+strtrim(string(N_in),1), $
-                   'Energy     = '+ene_type, $
-                   'Theta     = '+strtrim(string(theta_type),1), $
-                   'Phi     = '+strtrim(string(phi_type),1), $
-                   'Position unit = cm', $
-                   'Energy unit = keV']
+	    MWRFITS, rawData, outdir+'/G4.RAW.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', hdr_rawData, /create
     
-    MWRFITS, rawData, outdir+'/G4.RAW.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', hdr_rawData, /create
+	    x_pos = dblarr(n_elements(ent_x))
+	    y_pos = dblarr(n_elements(ent_x))
+	    z_pos = dblarr(n_elements(ent_x))
     
-    x_pos = dblarr(n_elements(ent_x))
-    y_pos = dblarr(n_elements(ent_x))
-    z_pos = dblarr(n_elements(ent_x))
+	    for j=0l, n_elements(ent_x)-1 do begin
+	     x_pos(j) = ent_x(j) + ((exit_x(j) - ent_x(j))/2.)
+	     y_pos(j) = ent_y(j) + ((exit_y(j) - ent_y(j))/2.)
+	     z_pos(j) = ent_z(j) + ((exit_z(j) - ent_z(j))/2.)
+	    endfor
     
-    for j=0l, n_elements(ent_x)-1 do begin
-     x_pos(j) = ent_x(j) + ((exit_x(j) - ent_x(j))/2.)
-     y_pos(j) = ent_y(j) + ((exit_y(j) - ent_y(j))/2.)
-     z_pos(j) = ent_z(j) + ((exit_z(j) - ent_z(j))/2.)
-    endfor
+	    openw,lun, outdir+'/G4.RAW.KALMAN.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
+	    ; ASCII Columns:
+	    ; - c1 = event id
+	    ; - c2 = Silicon layer ID
+	    ; - c3 = x/y pos [cm]
+	    ; - c4 = z pos [cm]
+	    ; - c5 = plane ID
+	    ; - c6 = strip ID
+	    ; - c7 = energy dep [keV]
     
-    openw,lun, outdir+'/G4.RAW.KALMAN.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
-    ; ASCII Columns:
-    ; - c1 = event id
-    ; - c2 = Silicon layer ID
-    ; - c3 = x/y pos [cm]
-    ; - c4 = z pos [cm]
-    ; - c5 = plane ID
-    ; - c6 = strip ID
-    ; - c7 = energy dep [keV]
+	    event_start = -1
+	    j=0l
+	    while (1) do begin
+	        where_event_eq = where(event_id EQ event_id(j))
+	        Si_id_temp = Si_id(where_event_eq)
+	        Strip_id_temp = Strip_id(where_event_eq)
+	        tray_id_temp  = tray_id(where_event_eq)
+	        plane_id_temp  = plane_id(where_event_eq)
+	        energy_dep_temp = energy_dep(where_event_eq)    
+	        x_pos_temp = x_pos(where_event_eq)
+	        y_pos_temp = y_pos(where_event_eq)
+	        z_pos_temp = z_pos(where_event_eq)
     
-    event_start = -1
-    j=0l
-    while (1) do begin
-        where_event_eq = where(event_id EQ event_id(j))
-        Si_id_temp = Si_id(where_event_eq)
-        Strip_id_temp = Strip_id(where_event_eq)
-        tray_id_temp  = tray_id(where_event_eq)
-        plane_id_temp  = plane_id(where_event_eq)
-        energy_dep_temp = energy_dep(where_event_eq)    
-        x_pos_temp = x_pos(where_event_eq)
-        y_pos_temp = y_pos(where_event_eq)
-        z_pos_temp = z_pos(where_event_eq)
-    
-        ;printf, lun, '; Event:', event_id(j)
-        ;printf, lun, '; ', theta_type, phi_type, ene_type   
+ 	        ;printf, lun, '; Event:', event_id(j)
+ 	        ;printf, lun, '; ', theta_type, phi_type, ene_type   
         
-        where_x = where(Si_id_temp EQ 0)
-        if (where_x(0) NE -1) then begin
-         for r=0l, n_elements(where_x)-1 do begin
-            printf, lun, event_id(j), Si_id_temp(where_x(r)), x_pos_temp(where_x(r)), z_pos_temp(where_x(r)), plane_id_temp(where_x(r)), Strip_id_temp(where_x(r)), energy_dep_temp(where_x(r)), format='(I5,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,F10.5)'
-         endfor
-        endif
-        where_y = where(Si_id_temp EQ 1)    
-        if (where_y(0) NE -1) then begin
-         for r=0l, n_elements(where_y)-1 do begin
-            printf, lun, event_id(j), Si_id_temp(where_y(r)), y_pos_temp(where_y(r)), z_pos_temp(where_y(r)), plane_id_temp(where_y(r)), Strip_id_temp(where_y(r)), energy_dep_temp(where_y(r)), format='(I5,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,F10.5)'
-         endfor
-        endif
-        N_event_eq = n_elements(where_event_eq)
-        if where_event_eq(N_event_eq-1) LT (n_elements(event_id)-1) then begin
-          j = where_event_eq(N_event_eq-1)+1
-        endif else break
-    endwhile
+  	        where_x = where(Si_id_temp EQ 0)
+			if (where_x(0) NE -1) then begin
+			 for r=0l, n_elements(where_x)-1 do begin
+				printf, lun, event_id(j), Si_id_temp(where_x(r)), x_pos_temp(where_x(r)), z_pos_temp(where_x(r)), plane_id_temp(where_x(r)), Strip_id_temp(where_x(r)), energy_dep_temp(where_x(r)), format='(I6,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,F10.5)'
+			 endfor
+			endif
+			where_y = where(Si_id_temp EQ 1)    
+			if (where_y(0) NE -1) then begin
+			 for r=0l, n_elements(where_y)-1 do begin
+				printf, lun, event_id(j), Si_id_temp(where_y(r)), y_pos_temp(where_y(r)), z_pos_temp(where_y(r)), plane_id_temp(where_y(r)), Strip_id_temp(where_y(r)), energy_dep_temp(where_y(r)), format='(I6,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,F10.5)'
+			 endfor
+			endif
+			N_event_eq = n_elements(where_event_eq)
+			if where_event_eq(N_event_eq-1) LT (n_elements(event_id)-1) then begin
+			  j = where_event_eq(N_event_eq-1)+1
+			endif else break
+    	endwhile
     
-    Free_lun, lun
+    	Free_lun, lun
     
-    openw,lun,outdir+'/G4.RAW.GENERAL.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
-    ; ASCII Columns:
-    ; - c1 = event ID
-    ; - c2 = Silicon layer ID
-    ; - c3 = x/y pos [cm]
-    ; - c4 = z pos [cm]
-    ; - c5 = tray ID
-    ; - c6 = plane ID
-    ; - c7 = strip ID 
-    ; - c8 = energy dep [keV]    
+    	openw,lun,outdir+'/G4.RAW.GENERAL.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
+    	; ASCII Columns:
+    	; - c1 = event ID
+    	; - c2 = Silicon layer ID
+    	; - c3 = x/y pos [cm]
+    	; - c4 = z pos [cm]
+    	; - c5 = tray ID
+    	; - c6 = plane ID
+    	; - c7 = strip ID 
+    	; - c8 = energy dep [keV]    
     
-    event_start = -1
-    j=0l
-    while (1) do begin
-        where_event_eq = where(event_id EQ event_id(j))
-        Si_id_temp = Si_id(where_event_eq)
-        Strip_id_temp = Strip_id(where_event_eq)
-        tray_id_temp  = tray_id(where_event_eq)
-        plane_id_temp  = plane_id(where_event_eq)
-        energy_dep_temp = energy_dep(where_event_eq)    
-        x_pos_temp = x_pos(where_event_eq)
-        y_pos_temp = y_pos(where_event_eq)
-        z_pos_temp = z_pos(where_event_eq)
+    	event_start = -1
+    	j=0l
+    	while (1) do begin
+        	where_event_eq = where(event_id EQ event_id(j))
+        	Si_id_temp = Si_id(where_event_eq)
+        	Strip_id_temp = Strip_id(where_event_eq)
+        	tray_id_temp  = tray_id(where_event_eq)
+        	plane_id_temp  = plane_id(where_event_eq)
+        	energy_dep_temp = energy_dep(where_event_eq)    
+        	x_pos_temp = x_pos(where_event_eq)
+        	y_pos_temp = y_pos(where_event_eq)
+        	z_pos_temp = z_pos(where_event_eq)
      
         
-        where_x = where(Si_id_temp EQ 0)
-        if (where_x(0) NE -1) then begin
-         for r=0l, n_elements(where_x)-1 do begin
-            printf, lun, event_id(j), Si_id_temp(where_x(r)), x_pos_temp(where_x(r)), z_pos_temp(where_x(r)), tray_id_temp(where_x(r)), plane_id_temp(where_x(r)), Strip_id_temp(where_x(r)), energy_dep_temp(where_x(r)), format='(I5,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,I5,2x,F10.5)'
-         endfor
-        endif
-        where_y = where(Si_id_temp EQ 1)    
-        if (where_y(0) NE -1) then begin
-         for r=0l, n_elements(where_y)-1 do begin
-            printf, lun, event_id(j), Si_id_temp(where_y(r)), y_pos_temp(where_y(r)), z_pos_temp(where_y(r)), tray_id_temp(where_y(r)), plane_id_temp(where_y(r)), Strip_id_temp(where_y(r)), energy_dep_temp(where_y(r)), format='(I5,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,I5,2x,F10.5)'
-         endfor
-        endif
-        N_event_eq = n_elements(where_event_eq)
-        if where_event_eq(N_event_eq-1) LT (n_elements(event_id)-1) then begin
-          j = where_event_eq(N_event_eq-1)+1
-        endif else break
-    endwhile
+        	where_x = where(Si_id_temp EQ 0)
+        	if (where_x(0) NE -1) then begin
+         	 for r=0l, n_elements(where_x)-1 do begin
+            	printf, lun, event_id(j), Si_id_temp(where_x(r)), x_pos_temp(where_x(r)), z_pos_temp(where_x(r)), tray_id_temp(where_x(r)), plane_id_temp(where_x(r)), Strip_id_temp(where_x(r)), energy_dep_temp(where_x(r)), format='(I6,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,I5,2x,F10.5)'
+         	 endfor
+        	endif
+        	where_y = where(Si_id_temp EQ 1)    
+        	if (where_y(0) NE -1) then begin
+         	 for r=0l, n_elements(where_y)-1 do begin
+            	printf, lun, event_id(j), Si_id_temp(where_y(r)), y_pos_temp(where_y(r)), z_pos_temp(where_y(r)), tray_id_temp(where_y(r)), plane_id_temp(where_y(r)), Strip_id_temp(where_y(r)), energy_dep_temp(where_y(r)), format='(I6,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,I5,2x,F10.5)'
+         	 endfor
+        	endif
+        	N_event_eq = n_elements(where_event_eq)
+        	if where_event_eq(N_event_eq-1) LT (n_elements(event_id)-1) then begin
+          		j = where_event_eq(N_event_eq-1)+1
+        	endif else break
+    	endwhile
     
-    Free_lun, lun
+    	Free_lun, lun
+    
+    endif
     
     print, '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
     print, '                            Tracker   '
@@ -642,6 +661,7 @@ for ifile=0, n_fits-1 do begin
         endif else break
      endwhile
     endif else begin
+       
       j=0l
       while (1) do begin
          where_event_eq = where(event_id EQ event_id(j))
@@ -1043,34 +1063,35 @@ for ifile=0, n_fits-1 do begin
     endfor
     
     
-    ; Level 0 = energy summed
-    ; Level 0 = the events are sorted in tray, and Y before X within the same tray
-    
-    CREATE_STRUCT, L0TRACKERGLOBAL, 'GLOBALTRACKERL0', ['EVT_ID', 'VOLUME_ID', 'MOTHER_ID', 'TRAY_ID', 'PLANE_ID','TRK_FLAG', 'STRIP_ID', 'STRIP_TYPE', 'POS', 'ZPOS','E_DEP'], 'I,J,J,I,I,I,J,J,F20.5,F20.5,F20.5', DIMEN = N_ELEMENTS(Glob_event_id_test)
-    L0TRACKERGLOBAL.EVT_ID = Glob_event_id_test
-    L0TRACKERGLOBAL.VOLUME_ID = Glob_vol_id_test
-    L0TRACKERGLOBAL.MOTHER_ID = Glob_moth_id_test
-    L0TRACKERGLOBAL.TRAY_ID = Glob_tray_id_test
-    L0TRACKERGLOBAL.PLANE_ID = Glob_plane_id_test
-    L0TRACKERGLOBAL.TRK_FLAG = Glob_Si_id_test
-    L0TRACKERGLOBAL.STRIP_ID = Glob_Strip_id_test
-    L0TRACKERGLOBAL.STRIP_TYPE = Glob_Strip_type_test
-    L0TRACKERGLOBAL.POS = Glob_pos_test
-    L0TRACKERGLOBAL.ZPOS = Glob_zpos_test
-    L0TRACKERGLOBAL.E_DEP = Glob_energy_dep_test
-    
-    HDR_L0GLOBAL = ['Creator          = Valentina Fioretti', $
-              'BoGEMMS release  = AGILE '+agile_version, $
-              'N_IN             = '+STRTRIM(STRING(N_IN),1)+'   /Number of simulated particles', $
-              'N_TRIG           = '+STRTRIM(STRING(N_TRIG),1)+'   /Number of triggering events', $
-              'ENERGY           = '+ene_type+'   /Simulated input energy', $
-              'THETA            = '+STRTRIM(STRING(THETA_TYPE),1)+'   /Simulated input theta angle', $
-              'PHI              = '+STRTRIM(STRING(PHI_TYPE),1)+'   /Simulated input phi angle', $
-              'ENERGY UNIT      = KEV']
-    
-    
-    MWRFITS, L0TRACKERGLOBAL, outdir+'/L0.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+STRMID(STRTRIM(STRING(N_IN),1),0,10)+'ph.'+ene_type+'MeV.'+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+'.'+STRMID(STRTRIM(STRING(PHI_TYPE),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', HDR_L0GLOBAL, /CREATE
-    
+    if (out_type EQ 0) then begin
+      ; Level 0 = energy summed
+      ; Level 0 = the events are sorted in tray, and Y before X within the same tray
+      
+      CREATE_STRUCT, L0TRACKERGLOBAL, 'GLOBALTRACKERL0', ['EVT_ID', 'VOLUME_ID', 'MOTHER_ID', 'TRAY_ID', 'PLANE_ID','TRK_FLAG', 'STRIP_ID', 'STRIP_TYPE', 'POS', 'ZPOS','E_DEP'], 'I,J,J,I,I,I,J,J,F20.5,F20.5,F20.5', DIMEN = N_ELEMENTS(Glob_event_id_test)
+      L0TRACKERGLOBAL.EVT_ID = Glob_event_id_test
+      L0TRACKERGLOBAL.VOLUME_ID = Glob_vol_id_test
+      L0TRACKERGLOBAL.MOTHER_ID = Glob_moth_id_test
+      L0TRACKERGLOBAL.TRAY_ID = Glob_tray_id_test
+      L0TRACKERGLOBAL.PLANE_ID = Glob_plane_id_test
+      L0TRACKERGLOBAL.TRK_FLAG = Glob_Si_id_test
+      L0TRACKERGLOBAL.STRIP_ID = Glob_Strip_id_test
+      L0TRACKERGLOBAL.STRIP_TYPE = Glob_Strip_type_test
+      L0TRACKERGLOBAL.POS = Glob_pos_test
+      L0TRACKERGLOBAL.ZPOS = Glob_zpos_test
+      L0TRACKERGLOBAL.E_DEP = Glob_energy_dep_test
+      
+      HDR_L0GLOBAL = ['Creator          = Valentina Fioretti', $
+                'BoGEMMS release  = AGILE '+agile_version, $
+                'N_IN             = '+STRTRIM(STRING(N_IN),1)+'   /Number of simulated particles', $
+                'N_TRIG           = '+STRTRIM(STRING(N_TRIG),1)+'   /Number of triggering events', $
+                'ENERGY           = '+ene_type+'   /Simulated input energy', $
+                'THETA            = '+STRTRIM(STRING(THETA_TYPE),1)+'   /Simulated input theta angle', $
+                'PHI              = '+STRTRIM(STRING(PHI_TYPE),1)+'   /Simulated input phi angle', $
+                'ENERGY UNIT      = KEV']
+      
+      
+      MWRFITS, L0TRACKERGLOBAL, outdir+'/L0.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+STRMID(STRTRIM(STRING(N_IN),1),0,10)+'ph.'+ene_type+'MeV.'+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+'.'+STRMID(STRTRIM(STRING(PHI_TYPE),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', HDR_L0GLOBAL, /CREATE
+    endif   
     
     print, '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
     print, '                      Tracker   '
@@ -1476,135 +1497,137 @@ for ifile=0, n_fits-1 do begin
      endif
     endfor
     
-    ; Level 0 = energy summed
-    ; Level 0 = the events are sorted in tray, and Y before X within the same tray
+    if (out_type EQ 0) then begin
+      ; Level 0 = energy summed
+      ; Level 0 = the events are sorted in tray, and Y before X within the same tray
+      
+      CREATE_STRUCT, L05TRACKERGLOBAL, 'GLOBALTRACKERL05', ['EVT_ID', 'VOLUME_ID', 'MOTHER_ID', 'TRAY_ID','PLANE_ID','TRK_FLAG', 'STRIP_ID', 'STRIP_TYPE', 'POS', 'ZPOS','E_DEP'], 'J,J,J,I,I,I,J,J,F20.5,F20.5,F20.5', DIMEN = N_ELEMENTS(Glob_event_id_acap)
+      L05TRACKERGLOBAL.EVT_ID = Glob_event_id_acap
+      L05TRACKERGLOBAL.VOLUME_ID = Glob_vol_id_acap
+      L05TRACKERGLOBAL.MOTHER_ID = Glob_moth_id_acap
+      L05TRACKERGLOBAL.TRAY_ID = Glob_tray_id_acap
+      L05TRACKERGLOBAL.PLANE_ID = Glob_plane_id_acap
+      L05TRACKERGLOBAL.TRK_FLAG = Glob_Si_id_acap
+      L05TRACKERGLOBAL.STRIP_ID = Glob_Strip_id_acap
+      L05TRACKERGLOBAL.STRIP_TYPE = Glob_Strip_type_acap
+      L05TRACKERGLOBAL.POS = Glob_pos_acap
+      L05TRACKERGLOBAL.ZPOS = Glob_zpos_acap
+      L05TRACKERGLOBAL.E_DEP = Glob_energy_dep_acap
+      
+      HDR_L05GLOBAL = ['Creator          = Valentina Fioretti', $
+                'BoGEMMS release  = AGILE '+agile_version, $
+                'N_IN             = '+STRTRIM(STRING(N_IN),1)+'   /Number of simulated particles', $
+                'N_TRIG           = '+STRTRIM(STRING(N_TRIG),1)+'   /Number of triggering events', $
+                'ENERGY           = '+ene_type+'   /Simulated input energy', $
+                'THETA            = '+STRTRIM(STRING(THETA_TYPE),1)+'   /Simulated input theta angle', $
+                'PHI              = '+STRTRIM(STRING(PHI_TYPE),1)+'   /Simulated input phi angle', $
+                'ENERGY UNIT      = KEV']
+      
+      
+      MWRFITS, L05TRACKERGLOBAL, outdir+'/L0.5.DIGI.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+STRMID(STRTRIM(STRING(N_IN),1),0,10)+'ph.'+ene_type+'MeV.'+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+'.'+STRMID(STRTRIM(STRING(PHI_TYPE),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', HDR_L05GLOBAL, /CREATE
+      
+      
+      print, '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
+      print, '                      Tracker   '
+      print, '            Saving the Kalman input file   '
+      print, '                    DIGI = yes '
+      print, '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
+      
+      
+      openw,lun,outdir+'/G4.DIGI.KALMAN.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
+      ; ASCII Columns:
+      ; - c1 = event ID
+      ; - c2 = Silicon layer ID
+      ; - c3 = x/y pos [cm]
+      ; - c4 = z pos [cm]
+      ; - c5 = plane ID
+      ; - c6 = strip ID
+      ; - c7 = energy dep [keV]
+   
+      event_start = -1
+      j=0l
+      while (1) do begin
+          where_event_eq = where(Glob_event_id_acap EQ Glob_event_id_acap(j))
+          Glob_Si_id_acap_temp = Glob_Si_id_acap(where_event_eq)
+          Glob_Strip_id_acap_temp = Glob_Strip_id_acap(where_event_eq)
+          Glob_tray_id_acap_temp  = Glob_tray_id_acap(where_event_eq)
+          Glob_plane_id_acap_temp  = Glob_plane_id_acap(where_event_eq)
+          Glob_energy_dep_acap_temp = Glob_energy_dep_acap(where_event_eq)    
+          Glob_pos_acap_temp = Glob_pos_acap(where_event_eq)
+          Glob_zpos_acap_temp = Glob_zpos_acap(where_event_eq)
+      
+          ;printf, lun, '; Event:', Glob_event_id_acap(j)
+          ;printf, lun, '; ', theta_type, phi_type, ene_type   
+          
+          
+          where_x = where(Glob_Si_id_acap_temp EQ 0)
+          if (where_x(0) NE -1) then begin
+           for r=0l, n_elements(where_x)-1 do begin
+              printf, lun, Glob_event_id_acap(j), Glob_Si_id_acap_temp(where_x(r)), Glob_pos_acap_temp(where_x(r)), Glob_zpos_acap_temp(where_x(r)), Glob_plane_id_acap_temp(where_x(r)), Glob_Strip_id_acap_temp(where_x(r)), Glob_energy_dep_acap_temp(where_x(r)), format='(I6,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,F10.5)'
+              
+           endfor
+          endif
+          where_y = where(Glob_Si_id_acap_temp EQ 1)    
+          if (where_y(0) NE -1) then begin
+           for r=0l, n_elements(where_y)-1 do begin
+              printf, lun, Glob_event_id_acap(j), Glob_Si_id_acap_temp(where_y(r)), Glob_pos_acap_temp(where_y(r)), Glob_zpos_acap_temp(where_y(r)), Glob_plane_id_acap_temp(where_y(r)), Glob_Strip_id_acap_temp(where_y(r)), Glob_energy_dep_acap_temp(where_y(r)), format='(I6,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,F10.5)'
+              
+           endfor
+          endif
+          N_event_eq = n_elements(where_event_eq)
+          if where_event_eq(N_event_eq-1) LT (n_elements(Glob_event_id_acap)-1) then begin
+            j = where_event_eq(N_event_eq-1)+1
+          endif else break
+      endwhile
+      
+      Free_lun, lun
+      
+      openw,lun,outdir+'/G4.DIGI.GENERAL.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
+      ; ASCII Columns:
+      ; - c1 = event ID
+      ; - c2 = Silicon layer ID
+      ; - c3 = x/y pos [cm]
+      ; - c4 = z pos [cm]
+      ; - c5 = tray ID
+      ; - c6 = plane ID
+      ; - c7 = strip ID 
+      ; - c8 = energy dep [keV]    
     
-    CREATE_STRUCT, L05TRACKERGLOBAL, 'GLOBALTRACKERL05', ['EVT_ID', 'VOLUME_ID', 'MOTHER_ID', 'TRAY_ID','PLANE_ID','TRK_FLAG', 'STRIP_ID', 'STRIP_TYPE', 'POS', 'ZPOS','E_DEP'], 'J,J,J,I,I,I,J,J,F20.5,F20.5,F20.5', DIMEN = N_ELEMENTS(Glob_event_id_acap)
-    L05TRACKERGLOBAL.EVT_ID = Glob_event_id_acap
-    L05TRACKERGLOBAL.VOLUME_ID = Glob_vol_id_acap
-    L05TRACKERGLOBAL.MOTHER_ID = Glob_moth_id_acap
-    L05TRACKERGLOBAL.TRAY_ID = Glob_tray_id_acap
-    L05TRACKERGLOBAL.PLANE_ID = Glob_plane_id_acap
-    L05TRACKERGLOBAL.TRK_FLAG = Glob_Si_id_acap
-    L05TRACKERGLOBAL.STRIP_ID = Glob_Strip_id_acap
-    L05TRACKERGLOBAL.STRIP_TYPE = Glob_Strip_type_acap
-    L05TRACKERGLOBAL.POS = Glob_pos_acap
-    L05TRACKERGLOBAL.ZPOS = Glob_zpos_acap
-    L05TRACKERGLOBAL.E_DEP = Glob_energy_dep_acap
-    
-    HDR_L05GLOBAL = ['Creator          = Valentina Fioretti', $
-              'BoGEMMS release  = AGILE '+agile_version, $
-              'N_IN             = '+STRTRIM(STRING(N_IN),1)+'   /Number of simulated particles', $
-              'N_TRIG           = '+STRTRIM(STRING(N_TRIG),1)+'   /Number of triggering events', $
-              'ENERGY           = '+ene_type+'   /Simulated input energy', $
-              'THETA            = '+STRTRIM(STRING(THETA_TYPE),1)+'   /Simulated input theta angle', $
-              'PHI              = '+STRTRIM(STRING(PHI_TYPE),1)+'   /Simulated input phi angle', $
-              'ENERGY UNIT      = KEV']
-    
-    
-    MWRFITS, L05TRACKERGLOBAL, outdir+'/L0.5.DIGI.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+STRMID(STRTRIM(STRING(N_IN),1),0,10)+'ph.'+ene_type+'MeV.'+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+'.'+STRMID(STRTRIM(STRING(PHI_TYPE),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', HDR_L05GLOBAL, /CREATE
-    
-    
-    print, '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
-    print, '                      Tracker   '
-    print, '            Saving the Kalman input file   '
-    print, '                    DIGI = yes '
-    print, '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
-    
-    
-    openw,lun,outdir+'/G4.DIGI.KALMAN.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
-    ; ASCII Columns:
-    ; - c1 = event ID
-    ; - c2 = Silicon layer ID
-    ; - c3 = x/y pos [cm]
-    ; - c4 = z pos [cm]
-    ; - c5 = plane ID
-    ; - c6 = strip ID
-    ; - c7 = energy dep [keV]
- 
-    event_start = -1
-    j=0l
-    while (1) do begin
-        where_event_eq = where(Glob_event_id_acap EQ Glob_event_id_acap(j))
-        Glob_Si_id_acap_temp = Glob_Si_id_acap(where_event_eq)
-        Glob_Strip_id_acap_temp = Glob_Strip_id_acap(where_event_eq)
-        Glob_tray_id_acap_temp  = Glob_tray_id_acap(where_event_eq)
-        Glob_plane_id_acap_temp  = Glob_plane_id_acap(where_event_eq)
-        Glob_energy_dep_acap_temp = Glob_energy_dep_acap(where_event_eq)    
-        Glob_pos_acap_temp = Glob_pos_acap(where_event_eq)
-        Glob_zpos_acap_temp = Glob_zpos_acap(where_event_eq)
-    
-        ;printf, lun, '; Event:', Glob_event_id_acap(j)
-        ;printf, lun, '; ', theta_type, phi_type, ene_type   
-        
-        
-        where_x = where(Glob_Si_id_acap_temp EQ 0)
-        if (where_x(0) NE -1) then begin
-         for r=0l, n_elements(where_x)-1 do begin
-            printf, lun, Glob_event_id_acap(j), Glob_Si_id_acap_temp(where_x(r)), Glob_pos_acap_temp(where_x(r)), Glob_zpos_acap_temp(where_x(r)), Glob_plane_id_acap_temp(where_x(r)), Glob_Strip_id_acap_temp(where_x(r)), Glob_energy_dep_acap_temp(where_x(r)), format='(I5,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,F10.5)'
-            
-         endfor
-        endif
-        where_y = where(Glob_Si_id_acap_temp EQ 1)    
-        if (where_y(0) NE -1) then begin
-         for r=0l, n_elements(where_y)-1 do begin
-            printf, lun, Glob_event_id_acap(j), Glob_Si_id_acap_temp(where_y(r)), Glob_pos_acap_temp(where_y(r)), Glob_zpos_acap_temp(where_y(r)), Glob_plane_id_acap_temp(where_y(r)), Glob_Strip_id_acap_temp(where_y(r)), Glob_energy_dep_acap_temp(where_y(r)), format='(I5,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,F10.5)'
-            
-         endfor
-        endif
-        N_event_eq = n_elements(where_event_eq)
-        if where_event_eq(N_event_eq-1) LT (n_elements(Glob_event_id_acap)-1) then begin
-          j = where_event_eq(N_event_eq-1)+1
-        endif else break
-    endwhile
-    
-    Free_lun, lun
-    
-    openw,lun,outdir+'/G4.DIGI.GENERAL.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
-    ; ASCII Columns:
-    ; - c1 = event ID
-    ; - c2 = Silicon layer ID
-    ; - c3 = x/y pos [cm]
-    ; - c4 = z pos [cm]
-    ; - c5 = tray ID
-    ; - c6 = plane ID
-    ; - c7 = strip ID 
-    ; - c8 = energy dep [keV]    
-  
-    event_start = -1
-    j=0l
-    while (1) do begin
-        where_event_eq = where(Glob_event_id_acap EQ Glob_event_id_acap(j))
-        Glob_Si_id_acap_temp = Glob_Si_id_acap(where_event_eq)
-        Glob_Strip_id_acap_temp = Glob_Strip_id_acap(where_event_eq)
-        Glob_tray_id_acap_temp  = Glob_tray_id_acap(where_event_eq)
-        Glob_plane_id_acap_temp  = Glob_plane_id_acap(where_event_eq)
-        Glob_energy_dep_acap_temp = Glob_energy_dep_acap(where_event_eq)    
-        Glob_pos_acap_temp = Glob_pos_acap(where_event_eq)
-        Glob_zpos_acap_temp = Glob_zpos_acap(where_event_eq)
-    
-        
-        where_x = where(Glob_Si_id_acap_temp EQ 0)
-        if (where_x(0) NE -1) then begin
-         for r=0l, n_elements(where_x)-1 do begin
-            printf, lun, Glob_event_id_acap(j), Glob_Si_id_acap_temp(where_x(r)), Glob_pos_acap_temp(where_x(r)), Glob_zpos_acap_temp(where_x(r)), Glob_tray_id_acap_temp(where_x(r)), Glob_plane_id_acap_temp(where_x(r)), Glob_Strip_id_acap_temp(where_x(r)), Glob_energy_dep_acap_temp(where_x(r)), format='(I5,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,I5,2x,F10.5)'
-            
-         endfor
-        endif
-        where_y = where(Glob_Si_id_acap_temp EQ 1)    
-        if (where_y(0) NE -1) then begin
-         for r=0l, n_elements(where_y)-1 do begin
-            printf, lun, Glob_event_id_acap(j), Glob_Si_id_acap_temp(where_y(r)), Glob_pos_acap_temp(where_y(r)), Glob_zpos_acap_temp(where_y(r)), Glob_tray_id_acap_temp(where_y(r)), Glob_plane_id_acap_temp(where_y(r)), Glob_Strip_id_acap_temp(where_y(r)), Glob_energy_dep_acap_temp(where_y(r)), format='(I5,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,I5,2x,F10.5)'
-            
-         endfor
-        endif
-        N_event_eq = n_elements(where_event_eq)
-        if where_event_eq(N_event_eq-1) LT (n_elements(Glob_event_id_acap)-1) then begin
-          j = where_event_eq(N_event_eq-1)+1
-        endif else break
-    endwhile
-    
-    Free_lun, lun
+      event_start = -1
+      j=0l
+      while (1) do begin
+          where_event_eq = where(Glob_event_id_acap EQ Glob_event_id_acap(j))
+          Glob_Si_id_acap_temp = Glob_Si_id_acap(where_event_eq)
+          Glob_Strip_id_acap_temp = Glob_Strip_id_acap(where_event_eq)
+          Glob_tray_id_acap_temp  = Glob_tray_id_acap(where_event_eq)
+          Glob_plane_id_acap_temp  = Glob_plane_id_acap(where_event_eq)
+          Glob_energy_dep_acap_temp = Glob_energy_dep_acap(where_event_eq)    
+          Glob_pos_acap_temp = Glob_pos_acap(where_event_eq)
+          Glob_zpos_acap_temp = Glob_zpos_acap(where_event_eq)
+      
+          
+          where_x = where(Glob_Si_id_acap_temp EQ 0)
+          if (where_x(0) NE -1) then begin
+           for r=0l, n_elements(where_x)-1 do begin
+              printf, lun, Glob_event_id_acap(j), Glob_Si_id_acap_temp(where_x(r)), Glob_pos_acap_temp(where_x(r)), Glob_zpos_acap_temp(where_x(r)), Glob_tray_id_acap_temp(where_x(r)), Glob_plane_id_acap_temp(where_x(r)), Glob_Strip_id_acap_temp(where_x(r)), Glob_energy_dep_acap_temp(where_x(r)), format='(I6,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,I5,2x,F10.5)'
+              
+           endfor
+          endif
+          where_y = where(Glob_Si_id_acap_temp EQ 1)    
+          if (where_y(0) NE -1) then begin
+           for r=0l, n_elements(where_y)-1 do begin
+              printf, lun, Glob_event_id_acap(j), Glob_Si_id_acap_temp(where_y(r)), Glob_pos_acap_temp(where_y(r)), Glob_zpos_acap_temp(where_y(r)), Glob_tray_id_acap_temp(where_y(r)), Glob_plane_id_acap_temp(where_y(r)), Glob_Strip_id_acap_temp(where_y(r)), Glob_energy_dep_acap_temp(where_y(r)), format='(I6,2x,I5,2x,F10.5,2x,F10.5,2x,I5,2x,I5,2x,I5,2x,F10.5)'
+              
+           endfor
+          endif
+          N_event_eq = n_elements(where_event_eq)
+          if where_event_eq(N_event_eq-1) LT (n_elements(Glob_event_id_acap)-1) then begin
+            j = where_event_eq(N_event_eq-1)+1
+          endif else break
+      endwhile
+      
+      Free_lun, lun
+    endif
     
     print, '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
     print, '                      Tracker   '
@@ -1644,7 +1667,7 @@ for ifile=0, n_fits-1 do begin
         ; The Strip ID starts from 1 (1 added in the file writing)
         if (where_x(0) NE -1) then begin
          for r=0l, n_elements(where_x)-1 do begin
-            printf, lun, (Glob_event_id_acap(j)+1), Glob_plane_id_acap_temp(where_x(r)), (Glob_Strip_readout_id_acap_temp(where_x(r)) + 1), -999, -999, Glob_energy_dep_mip_acap_temp(where_x(r)), -999, format='(I5,I5,I5,I5,I5,F10.5,I5)'
+            printf, lun, (Glob_event_id_acap(j)+1), Glob_plane_id_acap_temp(where_x(r)), (Glob_Strip_readout_id_acap_temp(where_x(r)) + 1), -999, -999, Glob_energy_dep_mip_acap_temp(where_x(r)), -999, format='(I6,I5,I5,I5,I5,F10.5,I5)'
             
          endfor
         endif
@@ -1694,7 +1717,7 @@ for ifile=0, n_fits-1 do begin
         where_y = where(Glob_Si_id_acap_temp EQ 1)    
         if (where_y(0) NE -1) then begin
          for r=0l, n_elements(where_y)-1 do begin
-            printf, lun, (Glob_event_id_acap(j)+1), Glob_plane_id_acap_temp(where_y(r)), (Glob_Strip_GAMS_id_acap_temp(where_y(r)) + 1), -999, -999, Glob_energy_dep_mip_acap_temp(where_y(r)), -999, format='(I5,I5,I5,I5,I5,F10.5,I5)'
+            printf, lun, (Glob_event_id_acap(j)+1), Glob_plane_id_acap_temp(where_y(r)), (Glob_Strip_GAMS_id_acap_temp(where_y(r)) + 1), -999, -999, Glob_energy_dep_mip_acap_temp(where_y(r)), -999, format='(I6,I5,I5,I5,I5,F10.5,I5)'
             
          endfor
         endif
@@ -1810,24 +1833,25 @@ for ifile=0, n_fits-1 do begin
     endif
     
     
-    
-    CREATE_STRUCT, calInput, 'input_cal_dhsim', ['EVT_ID', 'BAR_PLANE', 'BAR_ID', 'ENERGY_A', 'ENERGY_B'], $
-    'I,I,I,F20.15,F20.15', DIMEN = n_elements(event_id_tot_cal)
-    calInput.EVT_ID = event_id_tot_cal
-    calInput.BAR_PLANE = bar_plane_tot 
-    calInput.BAR_ID = bar_id_tot
-    calInput.ENERGY_A = ene_a_tot
-    calInput.ENERGY_B = ene_b_tot
-    
-    
-    hdr_calInput = ['COMMENT  AGILE V2.0 Geant4 simulation', $
-                   'N_in     = '+strtrim(string(N_in),1), $
-                   'Energy     = '+ene_type, $
-                   'Theta     = '+strtrim(string(theta_type),1), $
-                   'Phi     = '+strtrim(string(phi_type),1), $
-                   'Energy unit = GeV']
-    
-    MWRFITS, calInput, outdir+'/G4.CAL.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', hdr_calInput, /create
+    if (out_type EQ 0) then begin
+      CREATE_STRUCT, calInput, 'input_cal_dhsim', ['EVT_ID', 'BAR_PLANE', 'BAR_ID', 'ENERGY_A', 'ENERGY_B'], $
+      'I,I,I,F20.15,F20.15', DIMEN = n_elements(event_id_tot_cal)
+      calInput.EVT_ID = event_id_tot_cal
+      calInput.BAR_PLANE = bar_plane_tot 
+      calInput.BAR_ID = bar_id_tot
+      calInput.ENERGY_A = ene_a_tot
+      calInput.ENERGY_B = ene_b_tot
+      
+      
+      hdr_calInput = ['COMMENT  AGILE V2.0 Geant4 simulation', $
+                     'N_in     = '+strtrim(string(N_in),1), $
+                     'Energy     = '+ene_type, $
+                     'Theta     = '+strtrim(string(theta_type),1), $
+                     'Phi     = '+strtrim(string(phi_type),1), $
+                     'Energy unit = GeV']
+      
+      MWRFITS, calInput, outdir+'/G4.CAL.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', hdr_calInput, /create
+    endif
     
     openw,lun,outdir+'/G4_GAMS_CAL_AGILE'+agile_version+'_'+py_name+'_'+sim_name+'_'+stripname+'_'+sname+'_'+strmid(strtrim(string(N_in),1),0,10)+'ph_'+ene_type+'MeV_'+strmid(strtrim(string(theta_type),1),0,10)+'_'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
     ; ASCII Columns:
@@ -1860,7 +1884,7 @@ for ifile=0, n_fits-1 do begin
     
     j=0l
     while (1) do begin
-        printf, lun, (event_id_tot_cal(j)+1), gams_bar_plane_tot(j), gams_bar_id_tot(j), 0, ene_a_tot(j),ene_b_tot(j);, format='(I5,2x,I5,2x,I5,2x,I5,2x,F10.10,2x,F10.10)'
+        printf, lun, (event_id_tot_cal(j)+1), gams_bar_plane_tot(j), gams_bar_id_tot(j), 0, ene_a_tot(j),ene_b_tot(j);, format='(I6,2x,I5,2x,I5,2x,I5,2x,F10.10,2x,F10.10)'
 
         if (j LT (n_elements(event_id_tot_cal)-1)) then begin
           j = j+1
@@ -1957,22 +1981,24 @@ for ifile=0, n_fits-1 do begin
      endif
     endfor
     
-    CREATE_STRUCT, acInput, 'input_ac_dhsim', ['EVT_ID', 'AC_PANEL', 'AC_SUBPANEL', 'E_DEP'], $
-    'I,A,I,F20.15', DIMEN = n_elements(event_id_tot_ac)
-    acInput.EVT_ID = event_id_tot_ac
-    acInput.AC_PANEL = AC_panel
-    acInput.AC_SUBPANEL = AC_subpanel
-    acInput.E_DEP = energy_dep_tot_ac
-    
-    
-    hdr_acInput = ['COMMENT  AGILE V2.0 Geant4 simulation', $
-                   'N_in     = '+strtrim(string(N_in),1), $
-                   'Energy     = '+ene_type, $
-                   'Theta     = '+strtrim(string(theta_type),1), $
-                   'Phi     = '+strtrim(string(phi_type),1), $
-                   'Energy unit = GeV']
-    
-    MWRFITS, acInput, outdir+'/G4.AC.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', hdr_acInput, /create
+    if (out_type EQ 0) then begin
+      CREATE_STRUCT, acInput, 'input_ac_dhsim', ['EVT_ID', 'AC_PANEL', 'AC_SUBPANEL', 'E_DEP'], $
+      'I,A,I,F20.15', DIMEN = n_elements(event_id_tot_ac)
+      acInput.EVT_ID = event_id_tot_ac
+      acInput.AC_PANEL = AC_panel
+      acInput.AC_SUBPANEL = AC_subpanel
+      acInput.E_DEP = energy_dep_tot_ac
+      
+      
+      hdr_acInput = ['COMMENT  AGILE V2.0 Geant4 simulation', $
+                     'N_in     = '+strtrim(string(N_in),1), $
+                     'Energy     = '+ene_type, $
+                     'Theta     = '+strtrim(string(theta_type),1), $
+                     'Phi     = '+strtrim(string(phi_type),1), $
+                     'Energy unit = GeV']
+      
+      MWRFITS, acInput, outdir+'/G4.AC.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+strmid(strtrim(string(N_in),1),0,10)+'ph.'+ene_type+'MeV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.fits', hdr_acInput, /create
+    endif
     
     openw,lun,outdir+'/G4_GAMS_AC_AGILE'+agile_version+'_'+py_name+'_'+sim_name+'_'+stripname+'_'+sname+'_'+strmid(strtrim(string(N_in),1),0,10)+'ph_'+ene_type+'MeV_'+strmid(strtrim(string(theta_type),1),0,10)+'_'+strmid(strtrim(string(phi_type),1),0,10)+'.'+strtrim(string(ifile),1)+'.dat',/get_lun
     ; ASCII Columns:
@@ -1994,7 +2020,7 @@ for ifile=0, n_fits-1 do begin
     
     j=0l
     while (1) do begin
-        printf, lun, (event_id_tot_ac(j)+1),gams_AC_panel(j), AC_subpanel(j), energy_dep_tot_ac(j), format='(I5,2x,A,2x,I5,2x,F20.15)'
+        printf, lun, (event_id_tot_ac(j)+1),gams_AC_panel(j), AC_subpanel(j), energy_dep_tot_ac(j), format='(I6,2x,A,2x,I5,2x,F20.15)'
     
         if (j LT (n_elements(event_id_tot_ac)-1)) then begin
           j = j+1
