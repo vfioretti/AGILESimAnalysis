@@ -1,53 +1,80 @@
-pro plot_histostyle_vale, x, y, err_y, color=color, linestyle = linestyle, line_thick = line_thick, err_thick = err_thick, err_color = err_color
+pro cluster_analysis_agile
 
-bin = x(1) - x(0)
-;x = [x(0)-bin/2., x + bin/2.]
-
-;oplot, [x,x[n_elements(x)-1]+bin/2.], $
-;        [y[0],y,y[n_elements(y)-1]], psym = 10, thick = line_thick, color =color
-oplot, x,y, psym = 10, thick = line_thick, color =color
-;oploterror, x[1:*], y, err_y, $
-;       psym = 3, thick = err_thick, errcolor = err_color
-
-end
-
-pro plot_histostyle_romano, x, y, err_y, color=color, linestyle = linestyle, line_thick = line_thick, err_thick = err_thick, err_color = err_color
-
-  bin = x(1) - x(0)
-  ;x = [x(0)-bin/2., x + bin/2.]
-  x = [x(0)-bin, x-bin/2.]
-  y = [y(0), y]
-oplot, x,y, psym = 10, thick = line_thick, color =color
-
-;  oplot, [x,x[n_elements(x)-1]+bin/2.], $
-;         [y[0],y,y[n_elements(y)-1]], psym = 10, thick = line_thick, color =color
-
-end
-
-pro plot_cluster_agile
-
-
-; Variables initialization
-N_in = 0            ;--> Number of emitted photons
 
 ; Geometry:
 N_tray = 13l
 N_layer = 2l
 N_strip = 3072l
 
+; Variables initialization
+N_in = 0UL            ;--> Number of emitted photons
 
 agile_version = ''
+sim_type = 0
+py_list = 0
+ene_range = 0
 ene_type = 0
+ene_min = 0
+ene_max = 0
 theta_type = 0
 phi_type = 0
 source_g = 0
+ene_min = 0
+ene_max = 0
 
 read, agile_version, PROMPT='% - Enter AGILE release (e.g. V1.4):'
+read, sim_type, PROMPT='% - Enter simulation type [0 = Mono, 1 = Chen, 2: Vela, 3: Crab, 4: G400, 5 = SS]:'
+read, py_list, PROMPT='% - Enter the Physics List [0 = QGSP_BERT_EMV, 100 = ARGO, 300 = FERMI, 400 = ASTROMEV]:'
 read, N_in, PROMPT='% - Enter the number of emitted photons:'
-read, ene_type, PROMPT='% - Enter energy:'
+read, ene_range, PROMPT='% - Enter energy distribution [0 = mono, 1 = range]:'
+if (ene_range EQ 0) then begin
+  read, ene_type, PROMPT='% - Enter energy [MeV]:'
+  ene_type = strtrim(string(ene_type),1)
+endif
+if (ene_range EQ 1) then begin
+    read, ene_min, PROMPT='% - Enter miminum energy [MeV]:' 
+    read, ene_max, PROMPT='% - Enter maximum energy [MeV]:'
+    ene_type = strtrim(string(ene_min),1)+'.'+strtrim(string(ene_max),1)
+endif
 read, theta_type, PROMPT='% - Enter theta:'
 read, phi_type, PROMPT='% - Enter phi:'
 read, source_g, PROMPT='% - Enter source geometry [0 = Point, 1 = Plane]:'
+
+if (py_list EQ 0) then begin
+   py_dir = 'QGSP_BERT_EMV'
+   py_name = 'QGSP_BERT_EMV'
+endif
+if (py_list EQ 100) then begin
+   py_dir = '100List'
+   py_name = '100List'
+endif
+if (py_list EQ 300) then begin
+   py_dir = '300List'
+   py_name = '300List'
+endif
+if (py_list EQ 400) then begin
+   py_dir = 'ASTROMEV'
+   py_name = 'ASTROMEV'
+endif
+
+if (sim_type EQ 0) then begin
+   sim_name = 'MONO'
+endif
+if (sim_type EQ 1) then begin
+   sim_name = 'CHEN'
+endif
+if (sim_type EQ 2) then begin
+   sim_name = 'VELA'
+endif
+if (sim_type EQ 3) then begin
+   sim_name = 'CRAB'
+endif
+if (sim_type EQ 4) then begin
+   sim_name = 'G400'
+endif
+if (sim_type EQ 5) then begin
+   sim_name = 'SS'
+endif
 
 if (source_g EQ 0) then begin
  sdir = '/Point'
@@ -70,7 +97,11 @@ if ((isStrip EQ 1) AND (repli EQ 0)) then stripname = 'STRIP'
 if ((isStrip EQ 1) AND (repli EQ 1)) then stripname = 'STRIP.REPLI/'
 
 
-filepath = '/home/fioretti/GAMMA400/KALMAN/AGILE'+agile_version+'/DIGI'
+
+run_path = GETENV('BGRUNS')
+
+filepath = './AGILE'+agile_version+sdir+'/theta'+strtrim(string(theta_type),1)+'/'+stripDir+py_dir+'/'+sim_name+'/'+ene_type+'MeV/'+strtrim(string(N_in),1)+'ph/'
+print, 'LEVEL0 file path: ', filepath
 
 event_id = -1l
 vol_id = -1l
@@ -84,10 +115,11 @@ zpos = -1.
 energy_dep = -1.
 
 
-filename = filepath+'/L0.5.DIGI.AGILE'+agile_version+'.TRACKER.'+strmid(strtrim(string(N_in),1),0,10)+'PH.'+strmid(strtrim(string(ene_type),1),0,10)+'MEV.'+strmid(strtrim(string(theta_type),1),0,10)+'.'+strmid(strtrim(string(phi_type),1),0,10)+'.FITS'
+filename = filepath+'L0.5.DIGI.AGILE'+agile_version+'.'+py_name+'.'+sim_name+'.'+stripname+'.'+sname+'.'+STRMID(STRTRIM(STRING(N_IN),1),0,10)+'ph.'+ene_type+'MeV.'+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+'.'+STRMID(STRTRIM(STRING(PHI_TYPE),1),0,10)+'.all.fits'
+
 struct = mrdfits(filename,$ 
                      1, $
-                     structyp = 'agilev14_cluster', $
+                     structyp = 'agilev2_cluster', $
                      /unsigned)
                      
 for k=0l, n_elements(struct)-1l do begin                 
@@ -126,6 +158,7 @@ max_ene_clt = -1.
 j=0l
 while (1) do begin
     where_event_eq = where(event_id EQ event_id(j))
+    
     vol_id_temp = vol_id(where_event_eq)
     moth_id_temp = moth_id(where_event_eq)
     tray_id_temp  = tray_id(where_event_eq)
@@ -139,6 +172,7 @@ while (1) do begin
     k=0l
     while (1) do begin
      where_tray_eq = where(tray_id_temp EQ tray_id_temp(k))
+     
      vol_id_tray_temp = vol_id_temp(where_tray_eq)
      moth_id_tray_temp = moth_id_temp(where_tray_eq)
      Si_id_tray_temp = Si_id_temp(where_tray_eq)
@@ -147,10 +181,11 @@ while (1) do begin
      pos_tray_temp = pos_temp(where_tray_eq)
      zpos_tray_temp = zpos_temp(where_tray_eq)
      energy_dep_tray_temp = energy_dep_temp(where_tray_eq)    
-     
+ 
      r=0l
      while (1) do begin
       where_layer_eq = where(Si_id_tray_temp EQ Si_id_tray_temp(r))
+      
       vol_id_layer_temp = vol_id_tray_temp(where_layer_eq)
       moth_layer_id_temp = moth_id_tray_temp(where_layer_eq)
       Strip_id_layer_temp = Strip_id_tray_temp(where_layer_eq)
@@ -158,25 +193,34 @@ while (1) do begin
       pos_layer_temp = pos_tray_temp(where_layer_eq)
       zpos_layer_temp = zpos_tray_temp(where_layer_eq)
       energy_dep_layer_temp = energy_dep_tray_temp(where_layer_eq)    
+ 
+      sort_strip_descending = reverse(bsort(Strip_id_layer_temp))
+      vol_id_layer_temp_ordered = vol_id_layer_temp[sort_strip_descending]
+      moth_layer_id_temp_ordered = moth_layer_id_temp[sort_strip_descending]
+      Strip_id_layer_temp_ordered = Strip_id_layer_temp[sort_strip_descending]
+      Strip_type_layer_temp_ordered = Strip_type_layer_temp[sort_strip_descending]
+      pos_layer_temp_ordered = pos_layer_temp[sort_strip_descending]
+      zpos_layer_temp_ordered = zpos_layer_temp[sort_strip_descending]
+      energy_dep_layer_temp_ordered = energy_dep_layer_temp[sort_strip_descending]
       
       strip_start = 0
-      for l=0l, n_elements(Strip_id_layer_temp)-1 do begin
-       if (l LT (n_elements(Strip_id_layer_temp)-1)) then begin
-         if (Strip_id_layer_temp(l+1) NE (Strip_id_layer_temp(l)-2)) then begin
+      for l=0l, n_elements(Strip_id_layer_temp_ordered)-1 do begin
+       if (l LT (n_elements(Strip_id_layer_temp_ordered)-1)) then begin
+         if (Strip_id_layer_temp_ordered(l+1) NE (Strip_id_layer_temp_ordered(l)-2)) then begin
            event_clt = [event_clt, event_id(j)]
            tray_clt = [tray_clt, tray_id_temp(k)]
            Si_id_clt = [Si_id_clt, Si_id_tray_temp(r)]
            N_strip_clt = [N_strip_clt, (l+1) - strip_start]
-           energy_dep_layer_temp_clt = energy_dep_layer_temp[strip_start:l]
+           energy_dep_layer_temp_clt = energy_dep_layer_temp_ordered[strip_start:l]
            max_ene_clt = [max_ene_clt, max(energy_dep_layer_temp_clt)]
            strip_start = l+1
-         endif        
+         endif
        endif else begin
            event_clt = [event_clt, event_id(j)]
            tray_clt = [tray_clt, tray_id_temp(k)]
            Si_id_clt = [Si_id_clt, Si_id_tray_temp(r)]
            N_strip_clt = [N_strip_clt, (l+1) - strip_start]
-           energy_dep_layer_temp_clt = energy_dep_layer_temp[strip_start:l]
+           energy_dep_layer_temp_clt = energy_dep_layer_temp_ordered[strip_start:l]
            max_ene_clt = [max_ene_clt, max(energy_dep_layer_temp_clt)]
        endelse
       endfor
@@ -222,70 +266,9 @@ HDR_CLT = ['Creator          = Valentina Fioretti', $
           'ENERGY UNIT      = KEV']
 
 
-MWRFITS, CLTAGILE2, 'CLUSTER.AGILE'+agile_version+'.TRACKER.'+STRMID(STRTRIM(STRING(N_IN),1),0,10)+'PH.'+STRMID(STRTRIM(STRING(ENE_TYPE),1),0,10)+'MEV.'+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+'.'+STRMID(STRTRIM(STRING(PHI_TYPE),1),0,10)+'.FITS', HDR_CLT, /CREATE
+MWRFITS, CLTAGILE2, filepath+'CLUSTER.AGILE'+agile_version+'.TRACKER.'+STRMID(STRTRIM(STRING(N_IN),1),0,10)+'PH.'+STRMID(STRTRIM(STRING(ENE_TYPE),1),0,10)+'MEV.'+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+'.'+STRMID(STRTRIM(STRING(PHI_TYPE),1),0,10)+'.FITS', HDR_CLT, /CREATE
 
 
-;PLOTNAME='CLUSTER.AGILE'+agile_version+'.'+stripname+'.'+STRMID(STRTRIM(STRING(N_IN),1),0,10)+'ph.'+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+'.'+STRMID(STRTRIM(STRING(PHI_TYPE),1),0,10)+'.ps'
-if not keyword_set(nopsp) then begin
-  PS_Start, /encapsulated, FILENAME='CLUSTER.AGILE'+agile_version+'.'+stripname+'.'+STRMID(STRTRIM(STRING(N_IN),1),0,10)+'ph.'+strmid(strtrim(string(ene_type),1),0,10)+'MEV.'+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+'.'+STRMID(STRTRIM(STRING(PHI_TYPE),1),0,10)+'.eps', $
-  FONT=0, CHARSIZE=1., nomatch=1, xsize=9., yoffset=9.6, ysize=7 
-  bits_per_pixel=8
-endif
-
-RED   = [0, .5, 1, 0, 0, 1, 1, 0]
-GREEN = [0, .5, 0, 1, 0, 1, 0, 1]
-BLUE  = [0, 1., 0, 0, 1, 0, 1, 1]
-TVLCT, 255 * RED, 255 * GREEN, 255 * BLUE
-
-xt = 'Cluster (readout) strip number' 
-yt = '' 
-xr = [0, +10.]
-yr = [1., 10000]
-
-theta_letter = "161B
-ge_letter = "263B
-
-plot, [1], xtitle=xt, ytitle=yt, xrange=xr, yrange=yr, xstyle=1, ystyle=1,xmargin=[10,3], $
-    xcharsize=1.2, ycharsize=1.2, charthick=2,title='AGILE'+agile_version+' - !9'+string(theta_letter)+'!X = '+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+' deg. - '+stripname+' - '+strmid(strtrim(string(ene_type),1),0,10)+' MeV', /nodata
-
-path_bin=1
-plothist, N_strip_clt, N_strip_clt_arr, N_strip, bin=path_bin, /noplot
-plot_histostyle_romano, N_strip_clt_arr, N_strip, line_thick = 7, color = 2
-
-
-PS_End, /PNG
-
-PS_Start, /encapsulated, FILENAME='PULL.AGILE'+agile_version+'.'+stripname+'.'+STRMID(STRTRIM(STRING(N_IN),1),0,10)+'ph.'+strmid(strtrim(string(ene_type),1),0,10)+'MEV.'+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+'.'+STRMID(STRTRIM(STRING(PHI_TYPE),1),0,10)+'.eps', $
-FONT=0, CHARSIZE=1., nomatch=1, xsize=9., yoffset=9.6, ysize=7 
-bits_per_pixel=8
-
-RED   = [0, .5, 1, 0, 0, 1, 1, 0]
-GREEN = [0, .5, 0, 1, 0, 1, 0, 1]
-BLUE  = [0, 1., 0, 0, 1, 0, 1, 1]
-TVLCT, 255 * RED, 255 * GREEN, 255 * BLUE
-
-xt = 'Max charge [keV]' 
-yt = '' 
-xr = [0, 500.]
-yr = [1., 400]
-
-theta_letter = "161B
-ge_letter = "263B
-
-plot, [1], xtitle=xt, ytitle=yt, xrange=xr, yrange=yr, xstyle=1, ystyle=1,xmargin=[10,3], $
-    xcharsize=1.2, ycharsize=1.2, charthick=2,title='AGILE'+agile_version+' - !9'+string(theta_letter)+'!X = '+STRMID(STRTRIM(STRING(THETA_TYPE),1),0,10)+' deg. - '+stripname+' - '+strmid(strtrim(string(ene_type),1),0,10)+' MeV', /nodata
-
-;max_ene_clt_perc = 100.*(max_ene_clt/(ene_type*1000.))
-
-path_bin=2
-;plothist, max_ene_clt_perc, max_ene_clt_perc_arr, N_max, bin=path_bin, /noplot
-;plot_histostyle_romano, max_ene_clt_perc_arr, N_max, line_thick = 7, color = 4
-
-
-plothist, max_ene_clt, max_ene_clt_arr, N_max, bin=path_bin, /noplot
-plot_histostyle_romano, max_ene_clt_arr, N_max, line_thick = 7, color = 4
-
-PS_End, /PNG
 
 end
 
